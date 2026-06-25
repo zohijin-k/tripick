@@ -1,5 +1,6 @@
 import { ChevronRight, MapPinned, Route, Sparkles, Star } from 'lucide-react';
 import { Link, Navigate, useParams } from 'react-router-dom';
+import CourseMap from '../components/CourseMap';
 import ScoreBar from '../components/ScoreBar';
 import { findCourse } from '../utils/courseStorage';
 import { getAverageRating, getReviewsForCourse } from '../utils/reviewStorage';
@@ -117,6 +118,16 @@ function CourseDetailPage() {
             </div>
           </div>
         </div>
+      </section>
+
+      <section className="section section--compact">
+        <div className="section__header">
+          <div>
+            <p className="section__eyebrow">Course Map</p>
+            <h2>코스 지도</h2>
+          </div>
+        </div>
+        <CourseMap spots={course.spots} />
       </section>
 
       <section className="section section--compact">

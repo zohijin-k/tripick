@@ -22,6 +22,11 @@ export const calculateDistanceMeters = (from, to) => {
 export const canAutoCheckIn = (currentPosition, destination, threshold = 50) =>
   calculateDistanceMeters(currentPosition, destination) <= threshold;
 
+export const isWithinRadius = (userLocation, spot, radiusMeters = 50) => {
+  if (!userLocation || !spot || spot.lat == null || spot.lng == null) return false;
+  return calculateDistanceMeters(userLocation, { lat: spot.lat, lng: spot.lng }) <= radiusMeters;
+};
+
 export const getCurrentPosition = () =>
   new Promise((resolve, reject) => {
     if (!navigator.geolocation) {

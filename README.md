@@ -115,7 +115,7 @@ src/
 ### 구조 설명
 - `api/tourApi.js`: 한국관광공사 TourAPI v2 호출 및 응답 정규화
 - `hooks/useJeonjuSpots.js`: TourAPI + mock fallback을 추상화한 커스텀 훅
-- `components/`: 카드, 점수 바, 하단 네비게이션, 리뷰 모달 UI
+- `components/`: 카드, 점수 바, 하단 네비게이션, 리뷰 모달, 코스 지도 UI
 - `pages/`: 홈, 코스 상세, 코스 생성, Smart 자동 생성, Trace 수행 화면
 - `data/mockCourses.js`: 전주 기반 코스 목데이터
 - `data/jeonjuSpots.js`: TourAPI 미설정 시 fallback으로 사용할 전주 관광지 30곳
@@ -139,6 +139,27 @@ src/
 생성된 코스는 **이 코스 저장하기** 버튼으로 localStorage에 저장되며,
 홈 화면 **내가 만든 코스** 섹션에 즉시 표시됩니다.
 
+## CourseMap (Mock 지도)
+
+`src/components/CourseMap.jsx`는 외부 지도 API 없이 동작하는 순수 CSS + SVG 기반 지도 컴포넌트입니다.
+
+- **현재**: spot의 `lat`/`lng` 좌표를 바운딩 박스 기준으로 정규화하여 카드 안에 마커를 배치합니다.
+- **마커 상태**: 기본(네이비) / 현재 목표(초록, glow) / 방문 완료(파랑) / 내 위치(빨강)
+- **코스 경로**: 장소 간 점선 연결
+- **향후 계획**: Kakao Map API 또는 Naver Map API로 교체 예정
+
+### GPS 체크인 구조
+
+TracePage에서 `navigator.geolocation.getCurrentPosition`을 사용합니다.
+
+| 버튼 | 동작 |
+|---|---|
+| 내 위치 갱신 | 현재 GPS 위치를 가져와 지도에 표시, 목적지까지 거리 계산 |
+| GPS 자동 체크인 | 위치 확인 후 50m 이내면 자동 체크인 |
+| 현재 지점 체크인 | GPS 없이 수동 체크인 (개발/테스트 편의용) |
+
+GPS 권한이 거부되면 앱은 깨지지 않고, 지도 하단에 에러 메시지를 표시합니다.
+
 ## 구현 메모
 - 백엔드 없이 목데이터 기반으로 동작합니다.
 - `navigator.geolocation` 구조를 포함했고, 개발 편의를 위해 수동 체크인 버튼도 제공합니다.
@@ -146,6 +167,7 @@ src/
 - 데스크탑에서는 가운데 모바일 프레임 형태로 보이도록 `max-width`를 적용했습니다.
 - 사용자가 생성한 코스는 `localStorage`(`tripick_user_courses`)에 저장되며, 홈 화면 "내가 만든 코스" 섹션에 표시됩니다.
 - 코스 생성 시 선택한 장소 간 직선 거리를 합산하여 예상 거리를 자동 계산합니다.
+- `CourseMap`은 현재 mock 지도로, Kakao Map API 연동 시 이 컴포넌트만 교체하면 됩니다.
 
 ## 향후 개발 계획
 - 실제 GPS 자동 체크인

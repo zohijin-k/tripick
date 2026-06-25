@@ -1,12 +1,14 @@
 import { CheckCircle2, Crosshair, MapPinned, Navigation, RefreshCw } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
+import CourseMap from '../components/CourseMap';
 import ReviewModal from '../components/ReviewModal';
 import { findCourse } from '../utils/courseStorage';
 import {
   calculateDistanceMeters,
   canAutoCheckIn,
   getCurrentPosition,
+  isWithinRadius,
 } from '../utils/geo';
 import { hasReviewedCourse, saveReview } from '../utils/reviewStorage';
 
@@ -19,6 +21,8 @@ function TracePage() {
   const [statusMessage, setStatusMessage] = useState('체크인 준비가 되었습니다.');
   const [isLocating, setIsLocating] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [userLocation, setUserLocation] = useState(null);
+  const [gpsError, setGpsError] = useState('');
   const prevProgressRef = useRef(null);
 
   useEffect(() => {
@@ -30,7 +34,7 @@ function TracePage() {
       if (Array.isArray(parsed.visitedSpotIds)) {
         setVisitedSpotIds(parsed.visitedSpotIds);
       }
-    } catch (error) {
+    } catch {
       localStorage.removeItem(storageKey(course.id));
     }
   }, [course]);
@@ -51,7 +55,6 @@ function TracePage() {
     }));
   }, [course, visitedSpotIds]);
 
-  // completedCount / progressPercent must be computed before the review useEffect
   const completedCount = visitedSpotIds.length;
   const progressPercent = course
     ? Math.round((completedCount / course.spotCount) * 100)
@@ -72,6 +75,38 @@ function TracePage() {
 
   const currentSpot = spots.find((spot) => !spot.visited);
 
+  const distanceToNext =
+    userLocation && currentSpot
+      ? Math.round(
+          calculateDistanceMeters(userLocation, { lat: currentSpot.lat, lng: currentSpot.lng }),
+        )
+      : null;
+
+  const isNearTarget = isWithinRadius(userLocation, currentSpot);
+
+  const handleFetchLocation = async () => {
+    setIsLocating(true);
+    setGpsError('');
+    try {
+      const pos = await getCurrentPosition();
+      setUserLocation(pos);
+      if (currentSpot) {
+        const dist = Math.round(
+          calculateDistanceMeters(pos, { lat: currentSpot.lat, lng: currentSpot.lng }),
+        );
+        setStatusMessage(`위치 갱신 완료 — ${currentSpot.name}까지 ${dist}m`);
+      } else {
+        setStatusMessage('현재 위치를 가져왔습니다.');
+      }
+    } catch {
+      setGpsError(
+        'GPS 권한이 없거나 위치를 가져올 수 없습니다. 브라우저 설정을 확인해 주세요.',
+      );
+    } finally {
+      setIsLocating(false);
+    }
+  };
+
   const handleManualCheckIn = () => {
     if (!currentSpot) {
       setStatusMessage('이미 모든 지점을 완료했습니다.');
@@ -90,8 +125,10 @@ function TracePage() {
     }
     setIsLocating(true);
     setStatusMessage('현재 위치를 확인하는 중입니다...');
+    setGpsError('');
     try {
       const currentPosition = await getCurrentPosition();
+      setUserLocation(currentPosition);
       const destination = { lat: currentSpot.lat, lng: currentSpot.lng };
       const distance = calculateDistanceMeters(currentPosition, destination);
       if (canAutoCheckIn(currentPosition, destination)) {
@@ -106,8 +143,8 @@ function TracePage() {
           `${currentSpot.name}까지 ${Math.round(distance)}m 남았습니다. 수동 체크인을 사용할 수 있습니다.`,
         );
       }
-    } catch (error) {
-      setStatusMessage(
+    } catch {
+      setGpsError(
         'GPS 위치를 가져오지 못했습니다. 브라우저 권한을 확인하거나 수동 체크인을 사용하세요.',
       );
     } finally {
@@ -160,6 +197,41 @@ function TracePage() {
             <h2>{currentSpot ? currentSpot.name : '모든 지점 완료'}</h2>
             <p className="helper-text">{statusMessage}</p>
           </div>
+        </div>
+      </section>
+
+      <section className="section section--compact">
+        <div className="section__header">
+          <div>
+            <p className="section__eyebrow">Live Map</p>
+            <h2>코스 지도</h2>
+          </div>
+        </div>
+        <CourseMap
+          spots={spots}
+          activeSpotId={currentSpot?.id ?? null}
+          completedSpotIds={visitedSpotIds}
+          userLocation={userLocation}
+        />
+        <div className="map-controls">
+          <button
+            type="button"
+            className="map-location-btn"
+            onClick={handleFetchLocation}
+            disabled={isLocating}
+          >
+            <Crosshair size={15} />
+            {isLocating ? '위치 확인 중...' : '내 위치 갱신'}
+          </button>
+          {distanceToNext !== null && currentSpot && (
+            <div className={`gps-status${isNearTarget ? ' gps-status--near' : ' gps-status--far'}`}>
+              <span className="gps-status__dist">{distanceToNext}m</span>
+              <span className="gps-status__label">
+                {isNearTarget ? 'GPS 체크인 가능' : `${currentSpot.name}까지`}
+              </span>
+            </div>
+          )}
+          {gpsError && <p className="gps-error">{gpsError}</p>}
         </div>
       </section>
 
