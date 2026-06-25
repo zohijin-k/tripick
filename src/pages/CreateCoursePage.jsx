@@ -1,7 +1,7 @@
-import { ArrowLeft, Check, MapPin, Plus, X } from 'lucide-react';
+import { ArrowLeft, Check, Loader2, MapPin, Plus, X } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import jeonjuSpots from '../data/jeonjuSpots';
+import { useJeonjuSpots } from '../hooks/useJeonjuSpots';
 import { calculateDistanceMeters } from '../utils/geo';
 import { saveUserCourse } from '../utils/courseStorage';
 
@@ -54,6 +54,7 @@ function CreateCoursePage() {
   const [title, setTitle] = useState('');
   const [theme, setTheme] = useState('');
   const [selectedSpots, setSelectedSpots] = useState([]);
+  const { spots, loading, source } = useJeonjuSpots();
 
   const toggleSpot = (spot) => {
     setSelectedSpots((prev) =>
@@ -135,14 +136,21 @@ function CreateCoursePage() {
         </div>
 
         <div className="form-group">
-          <p className="form-label">
-            장소 선택{' '}
-            <span className="form-label-sub">
-              {selectedSpots.length > 0
-                ? `${selectedSpots.length}곳 선택됨`
-                : '최소 2곳'}
-            </span>
-          </p>
+          <div className="form-group__label-row">
+            <p className="form-label">
+              장소 선택{' '}
+              <span className="form-label-sub">
+                {selectedSpots.length > 0
+                  ? `${selectedSpots.length}곳 선택됨`
+                  : '최소 2곳'}
+              </span>
+            </p>
+            {!loading && (
+              <span className={`spot-source${source === 'api' ? ' spot-source--api' : ' spot-source--mock'}`}>
+                {source === 'api' ? `TourAPI · ${spots.length}곳` : '오프라인 데이터'}
+              </span>
+            )}
+          </div>
 
           {selectedSpots.length > 0 && (
             <div className="selected-spots">
@@ -160,23 +168,30 @@ function CreateCoursePage() {
             </div>
           )}
 
-          <div className="spot-picker">
-            {jeonjuSpots.map((spot) => {
-              const isSelected = !!selectedSpots.find((s) => s.id === spot.id);
-              return (
-                <button
-                  key={spot.id}
-                  className={`spot-pick-item${isSelected ? ' spot-pick-item--selected' : ''}`}
-                  onClick={() => toggleSpot(spot)}
-                >
-                  <MapPin size={14} className="spot-pick-item__pin" />
-                  <span className="spot-pick-item__name">{spot.name}</span>
-                  <span className="spot-pick-item__cat">{spot.category}</span>
-                  {isSelected && <Check size={14} className="spot-pick-item__check" />}
-                </button>
-              );
-            })}
-          </div>
+          {loading ? (
+            <div className="spot-picker-loading">
+              <Loader2 size={18} className="spin" />
+              <span>관광지 정보를 불러오는 중...</span>
+            </div>
+          ) : (
+            <div className="spot-picker">
+              {spots.map((spot) => {
+                const isSelected = !!selectedSpots.find((s) => s.id === spot.id);
+                return (
+                  <button
+                    key={spot.id}
+                    className={`spot-pick-item${isSelected ? ' spot-pick-item--selected' : ''}`}
+                    onClick={() => toggleSpot(spot)}
+                  >
+                    <MapPin size={14} className="spot-pick-item__pin" />
+                    <span className="spot-pick-item__name">{spot.name}</span>
+                    <span className="spot-pick-item__cat">{spot.category}</span>
+                    {isSelected && <Check size={14} className="spot-pick-item__check" />}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 

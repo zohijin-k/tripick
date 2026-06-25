@@ -33,6 +33,7 @@ performerScore = log10(performers + 1) / log10(100) * 100
 - react-router-dom
 - lucide-react
 - CSS
+- 한국관광공사 TourAPI v2 (선택)
 
 ## 실행 방법
 ```bash
@@ -40,13 +41,57 @@ npm install
 npm run dev
 ```
 
+## TourAPI 설정 (선택)
+
+API 키 없이도 내장 mock 데이터로 동작합니다. 실시간 전주 관광지 데이터를 사용하려면 아래 절차를 따르세요.
+
+### 1. API 키 발급
+1. [공공데이터포털 TourAPI](https://www.data.go.kr/data/15101578/openapi.do) 접속
+2. 로그인 → **활용신청** 클릭 (심사 없이 즉시 발급)
+3. 마이페이지 → OpenAPI → 활용 신청 목록에서 키 확인
+
+### 2. `.env` 파일 생성
+
+```bash
+cp .env.example .env
+```
+
+`.env` 파일을 열고 **일반 인증키 (Decoding)** 값을 입력합니다:
+
+```env
+VITE_TOUR_API_KEY=발급받은_디코딩_키_여기에_입력
+```
+
+> ⚠️ **Decoding 키**를 사용하세요. Encoding 키(%)를 입력하면 이중 인코딩으로 인증이 실패합니다.  
+> ⚠️ `.env` 파일은 `.gitignore`에 포함되어 있어 GitHub에 업로드되지 않습니다.
+
+### 3. 동작 방식
+
+| 상태 | 동작 |
+|---|---|
+| API 키 설정됨 | TourAPI에서 전주 관광지·문화시설 실시간 조회 (최대 200개) |
+| API 키 미설정 | 내장 mock 데이터 30개 자동 사용 |
+| API 요청 실패 | 자동으로 mock 데이터로 fallback |
+
+코스 생성 화면의 장소 선택 영역에 **TourAPI** 또는 **오프라인 데이터** 배지로 현재 데이터 출처가 표시됩니다.
+
+### 개발 환경 CORS 처리
+
+`vite.config.js`에 프록시가 설정되어 있어 개발 서버(`npm run dev`)에서 별도 CORS 설정 없이 동작합니다.  
+프로덕션 빌드에서는 TourAPI가 지원하는 CORS 헤더로 직접 호출됩니다.
+
 ## 폴더 구조
 ```text
 src/
+  api/
+    tourApi.js
   components/
     CourseCard.jsx
     ScoreBar.jsx
     BottomNav.jsx
+    ReviewModal.jsx
+  hooks/
+    useJeonjuSpots.js
   pages/
     HomePage.jsx
     CourseDetailPage.jsx
@@ -59,19 +104,23 @@ src/
     score.js
     geo.js
     courseStorage.js
+    reviewStorage.js
   App.jsx
   main.jsx
   index.css
 ```
 
 ### 구조 설명
-- `components/`: 카드, 점수 바, 하단 네비게이션 UI
+- `api/tourApi.js`: 한국관광공사 TourAPI v2 호출 및 응답 정규화
+- `hooks/useJeonjuSpots.js`: TourAPI + mock fallback을 추상화한 커스텀 훅
+- `components/`: 카드, 점수 바, 하단 네비게이션, 리뷰 모달 UI
 - `pages/`: 홈, 코스 상세, 코스 생성, Trace 수행 화면
 - `data/mockCourses.js`: 전주 기반 코스 목데이터
-- `data/jeonjuSpots.js`: 코스 생성 시 선택 가능한 전주 관광지 30곳
+- `data/jeonjuSpots.js`: TourAPI 미설정 시 fallback으로 사용할 전주 관광지 30곳
 - `utils/score.js`: TRIPICK 점수 산정 로직
 - `utils/geo.js`: GPS 거리 계산 및 자동 체크인 구조
 - `utils/courseStorage.js`: 사용자 코스 localStorage CRUD 및 통합 조회
+- `utils/reviewStorage.js`: 방문자 평가 localStorage CRUD 및 평균 별점 계산
 
 ## 구현 메모
 - 백엔드 없이 목데이터 기반으로 동작합니다.
@@ -82,10 +131,10 @@ src/
 - 코스 생성 시 선택한 장소 간 직선 거리를 합산하여 예상 거리를 자동 계산합니다.
 
 ## 향후 개발 계획
-- TourAPI 연동
 - 실제 GPS 자동 체크인
 - 사용자 로그인
 - 백엔드 및 DB 연동
+- TourAPI 키워드/위치 기반 검색 확장
 
 ## GitHub 업로드 명령어
 ```bash
