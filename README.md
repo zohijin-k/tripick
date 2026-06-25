@@ -81,6 +81,46 @@ VITE_TOUR_API_KEY=발급받은_디코딩_키_여기에_입력
 `vite.config.js`에 프록시가 설정되어 있어 개발 서버(`npm run dev`)에서 별도 CORS 설정 없이 동작합니다.  
 프로덕션 빌드에서는 TourAPI가 지원하는 CORS 헤더로 직접 호출됩니다.
 
+## Kakao Map 설정 (선택)
+
+`VITE_KAKAO_MAP_KEY`가 없으면 Preview Map(mock)으로 자동 fallback되어 앱은 정상 동작합니다.  
+실제 Kakao Map을 표시하려면 아래 절차를 따르세요.
+
+### 1. JavaScript 키 발급
+
+1. [Kakao Developers](https://developers.kakao.com) 접속 → 로그인
+2. **내 애플리케이션** → **애플리케이션 추가하기**
+3. **앱 키** 탭에서 **JavaScript 키** 복사
+
+### 2. 플랫폼 도메인 등록
+
+**플랫폼 → Web** 항목에서 사이트 도메인을 등록합니다.
+
+| 환경 | 등록 도메인 |
+|---|---|
+| 로컬 개발 | `http://localhost:5173` |
+| 배포 서버 | 실제 배포 URL (예: `https://tripick.vercel.app`) |
+
+> ⚠️ 도메인이 등록되지 않으면 지도가 로드되지 않습니다.
+
+### 3. `.env` 에 키 입력
+
+```env
+VITE_KAKAO_MAP_KEY=발급받은_JavaScript_키
+```
+
+이후 `npm run dev`를 재시작합니다.
+
+### 4. 동작 방식
+
+| 상태 | 동작 |
+|---|---|
+| 키 설정 + 도메인 등록됨 | Kakao Map SDK 동적 로드 후 실제 지도 표시 |
+| 키 미설정 | Preview Map(mock)으로 자동 fallback |
+| SDK 로드 실패 | Preview Map으로 자동 fallback |
+
+지도 하단에 **Kakao Map** 또는 **Preview Map** 배지로 현재 상태가 표시됩니다.
+
 ## 폴더 구조
 ```text
 src/
@@ -91,6 +131,9 @@ src/
     ScoreBar.jsx
     BottomNav.jsx
     ReviewModal.jsx
+    CourseMap.jsx
+    KakaoCourseMap.jsx
+    MapWrapper.jsx
   hooks/
     useJeonjuSpots.js
   pages/
@@ -115,7 +158,7 @@ src/
 ### 구조 설명
 - `api/tourApi.js`: 한국관광공사 TourAPI v2 호출 및 응답 정규화
 - `hooks/useJeonjuSpots.js`: TourAPI + mock fallback을 추상화한 커스텀 훅
-- `components/`: 카드, 점수 바, 하단 네비게이션, 리뷰 모달, 코스 지도 UI
+- `components/`: 카드, 점수 바, 하단 네비게이션, 리뷰 모달, 지도(mock/Kakao/래퍼) UI
 - `pages/`: 홈, 코스 상세, 코스 생성, Smart 자동 생성, Trace 수행 화면
 - `data/mockCourses.js`: 전주 기반 코스 목데이터
 - `data/jeonjuSpots.js`: TourAPI 미설정 시 fallback으로 사용할 전주 관광지 30곳

@@ -1,7 +1,7 @@
 import { CheckCircle2, Crosshair, MapPinned, Navigation, RefreshCw } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
-import CourseMap from '../components/CourseMap';
+import MapWrapper from '../components/MapWrapper';
 import ReviewModal from '../components/ReviewModal';
 import { findCourse } from '../utils/courseStorage';
 import {
@@ -207,7 +207,7 @@ function TracePage() {
             <h2>코스 지도</h2>
           </div>
         </div>
-        <CourseMap
+        <MapWrapper
           spots={spots}
           activeSpotId={currentSpot?.id ?? null}
           completedSpotIds={visitedSpotIds}

@@ -154,6 +154,7 @@ function CourseMap({
             내 위치
           </span>
         )}
+        <span className="map-source-badge map-source-badge--mock">Preview Map</span>
       </div>
     </div>
   );
