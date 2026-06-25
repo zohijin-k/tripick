@@ -1,12 +1,14 @@
 import { CheckCircle2, Crosshair, MapPinned, Navigation, RefreshCw } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
+import ReviewModal from '../components/ReviewModal';
 import { findCourse } from '../utils/courseStorage';
 import {
   calculateDistanceMeters,
   canAutoCheckIn,
   getCurrentPosition,
 } from '../utils/geo';
+import { hasReviewedCourse, saveReview } from '../utils/reviewStorage';
 
 const storageKey = (courseId) => `tripick-trace-${courseId}`;
 
@@ -16,17 +18,13 @@ function TracePage() {
   const [visitedSpotIds, setVisitedSpotIds] = useState([]);
   const [statusMessage, setStatusMessage] = useState('체크인 준비가 되었습니다.');
   const [isLocating, setIsLocating] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const prevProgressRef = useRef(null);
 
   useEffect(() => {
-    if (!course) {
-      return;
-    }
-
+    if (!course) return;
     const saved = localStorage.getItem(storageKey(course.id));
-    if (!saved) {
-      return;
-    }
-
+    if (!saved) return;
     try {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed.visitedSpotIds)) {
@@ -38,44 +36,47 @@ function TracePage() {
   }, [course]);
 
   useEffect(() => {
-    if (!course) {
-      return;
-    }
-
+    if (!course) return;
     localStorage.setItem(
       storageKey(course.id),
-      JSON.stringify({
-        visitedSpotIds,
-        updatedAt: new Date().toISOString(),
-      }),
+      JSON.stringify({ visitedSpotIds, updatedAt: new Date().toISOString() }),
     );
   }, [course, visitedSpotIds]);
 
   const spots = useMemo(() => {
-    if (!course) {
-      return [];
-    }
-
+    if (!course) return [];
     return course.spots.map((spot) => ({
       ...spot,
       visited: visitedSpotIds.includes(spot.id),
     }));
   }, [course, visitedSpotIds]);
 
+  // completedCount / progressPercent must be computed before the review useEffect
+  const completedCount = visitedSpotIds.length;
+  const progressPercent = course
+    ? Math.round((completedCount / course.spotCount) * 100)
+    : 0;
+
+  useEffect(() => {
+    const prev = prevProgressRef.current;
+    prevProgressRef.current = progressPercent;
+    if (!course || progressPercent < 70 || hasReviewedCourse(courseId)) return;
+    if (prev === null || prev < 70) {
+      setShowReviewModal(true);
+    }
+  }, [progressPercent, courseId, course]);
+
   if (!course) {
     return <Navigate to="/" replace />;
   }
 
   const currentSpot = spots.find((spot) => !spot.visited);
-  const completedCount = visitedSpotIds.length;
-  const progressPercent = Math.round((completedCount / course.spotCount) * 100);
 
   const handleManualCheckIn = () => {
     if (!currentSpot) {
       setStatusMessage('이미 모든 지점을 완료했습니다.');
       return;
     }
-
     setVisitedSpotIds((previous) =>
       previous.includes(currentSpot.id) ? previous : [...previous, currentSpot.id],
     );
@@ -87,15 +88,12 @@ function TracePage() {
       setStatusMessage('이미 모든 지점을 완료했습니다.');
       return;
     }
-
     setIsLocating(true);
     setStatusMessage('현재 위치를 확인하는 중입니다...');
-
     try {
       const currentPosition = await getCurrentPosition();
       const destination = { lat: currentSpot.lat, lng: currentSpot.lng };
       const distance = calculateDistanceMeters(currentPosition, destination);
-
       if (canAutoCheckIn(currentPosition, destination)) {
         setVisitedSpotIds((previous) =>
           previous.includes(currentSpot.id) ? previous : [...previous, currentSpot.id],
@@ -119,8 +117,15 @@ function TracePage() {
 
   const handleReset = () => {
     setVisitedSpotIds([]);
+    setShowReviewModal(false);
     localStorage.removeItem(storageKey(course.id));
     setStatusMessage('수행 기록을 초기화했습니다.');
+  };
+
+  const handleReviewSubmit = ({ rating, comment }) => {
+    saveReview({ courseId, rating, comment });
+    setShowReviewModal(false);
+    setStatusMessage('평가를 저장했습니다. 감사합니다!');
   };
 
   return (
@@ -210,6 +215,14 @@ function TracePage() {
           ))}
         </div>
       </section>
+
+      {showReviewModal && (
+        <ReviewModal
+          courseTitle={course.title}
+          onSubmit={handleReviewSubmit}
+          onClose={() => setShowReviewModal(false)}
+        />
+      )}
     </div>
   );
 }

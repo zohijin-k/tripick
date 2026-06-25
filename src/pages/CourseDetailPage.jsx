@@ -2,7 +2,29 @@ import { ChevronRight, MapPinned, Route, Sparkles, Star } from 'lucide-react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import ScoreBar from '../components/ScoreBar';
 import { findCourse } from '../utils/courseStorage';
+import { getAverageRating, getReviewsForCourse } from '../utils/reviewStorage';
 import { calculateTripickScore } from '../utils/score';
+
+function formatDate(isoString) {
+  const d = new Date(isoString);
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function StarRow({ rating, size = 14 }) {
+  return (
+    <span className="star-row">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <Star
+          key={i}
+          size={size}
+          fill={i <= rating ? '#f59e0b' : 'transparent'}
+          stroke={i <= rating ? '#f59e0b' : '#cbd5e1'}
+          strokeWidth={1.8}
+        />
+      ))}
+    </span>
+  );
+}
 
 function CourseDetailPage() {
   const { courseId } = useParams();
@@ -12,7 +34,15 @@ function CourseDetailPage() {
     return <Navigate to="/" replace />;
   }
 
-  const { totalScore, performerScore, ratingScore } = calculateTripickScore(course);
+  const reviews = getReviewsForCourse(courseId);
+  const avgFromReviews = getAverageRating(courseId);
+  // Use user review average when available; fall back to course's original rating
+  const effectiveRating = avgFromReviews ?? course.averageRating;
+
+  const { totalScore, performerScore, ratingScore } = calculateTripickScore({
+    ...course,
+    averageRating: effectiveRating,
+  });
 
   return (
     <div className="page">
@@ -71,7 +101,12 @@ function CourseDetailPage() {
             <Star size={18} />
             <div>
               <span>평균 만족도</span>
-              <strong>{course.averageRating} / 5</strong>
+              <strong>
+                {effectiveRating} / 5
+                {avgFromReviews !== null && (
+                  <span className="rating-badge">내 평가</span>
+                )}
+              </strong>
             </div>
           </div>
           <div className="info-chip">
@@ -107,6 +142,32 @@ function CourseDetailPage() {
           ))}
         </div>
       </section>
+
+      {reviews.length > 0 && (
+        <section className="section section--compact">
+          <div className="section__header">
+            <div>
+              <p className="section__eyebrow">User Reviews</p>
+              <h2>방문자 후기</h2>
+            </div>
+            <span className="section__count">{reviews.length}개</span>
+          </div>
+          <div className="review-list">
+            {reviews.map((review) => (
+              <div key={review.id} className="review-item">
+                <div className="review-item__header">
+                  <StarRow rating={review.rating} />
+                  <span className="review-item__score">{review.rating}.0</span>
+                  <span className="review-item__date">{formatDate(review.createdAt)}</span>
+                </div>
+                {review.comment && (
+                  <p className="review-item__comment">{review.comment}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="sticky-action">
         <Link className="primary-button" to={`/trace/${course.id}`}>

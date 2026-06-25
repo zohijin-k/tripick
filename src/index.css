@@ -549,6 +549,168 @@ input {
   color: var(--green);
 }
 
+/* ── ReviewModal ── */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(16, 42, 67, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 20px;
+}
+
+.modal {
+  width: 100%;
+  max-width: 390px;
+  background: var(--surface);
+  border-radius: 24px;
+  padding: 24px;
+  position: relative;
+  box-shadow: 0 24px 60px rgba(16, 42, 67, 0.28);
+}
+
+.modal__close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.modal__title {
+  margin: 6px 0 3px;
+  font-size: 20px;
+  color: var(--navy);
+}
+
+.modal__subtitle {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.star-rating {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin: 20px 0 6px;
+}
+
+.star-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: grid;
+  place-items: center;
+  transition: transform 0.1s ease;
+}
+
+.star-btn:hover {
+  transform: scale(1.18);
+}
+
+.star-label {
+  margin: 0 0 14px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy);
+  min-height: 18px;
+}
+
+.review-textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-muted);
+  font-size: 14px;
+  color: var(--navy);
+  outline: none;
+  resize: none;
+  margin-bottom: 16px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.review-textarea:focus {
+  border-color: var(--green);
+  background: var(--surface);
+}
+
+.modal__actions {
+  display: grid;
+  gap: 8px;
+}
+
+/* ── Review list (CourseDetailPage) ── */
+
+.review-list {
+  display: grid;
+  gap: 10px;
+}
+
+.review-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 14px 16px;
+}
+
+.review-item__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.star-row {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.review-item__score {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.review-item__date {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.review-item__comment {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: var(--navy);
+  line-height: 1.5;
+}
+
+.rating-badge {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--green);
+  background: #edf6f3;
+  border: 1px solid var(--mint);
+  border-radius: 999px;
+  padding: 1px 6px;
+  vertical-align: middle;
+}
+
 /* ── CreateCoursePage ── */
 
 .page--create {
