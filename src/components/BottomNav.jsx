@@ -1,4 +1,4 @@
-import { Home, Map, PlusCircle, Trophy } from 'lucide-react';
+import { Home, Map, PlusCircle, Sparkles } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 
 function BottomNav() {
@@ -11,9 +11,9 @@ function BottomNav() {
         <Home size={18} />
         <span>Home</span>
       </NavLink>
-      <NavLink to="/" className={getNavClassName}>
-        <Trophy size={18} />
-        <span>Ranking</span>
+      <NavLink to="/smart" className={getNavClassName}>
+        <Sparkles size={18} />
+        <span>Smart</span>
       </NavLink>
       <NavLink to="/create" className={getNavClassName}>
         <PlusCircle size={18} />
