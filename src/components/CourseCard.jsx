@@ -1,9 +1,11 @@
 import { MapPinned, Star, Target, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { calculateTripickScore } from '../utils/score';
+import { calculateTrustScore } from '../utils/trustScore';
 
 function CourseCard({ course, rank }) {
   const { totalScore } = calculateTripickScore(course);
+  const { score: trustScore } = calculateTrustScore(course);
 
   return (
     <Link className="course-card" to={`/courses/${course.id}`}>
@@ -26,6 +28,7 @@ function CourseCard({ course, rank }) {
           <div className="course-card__score">
             <span>Score</span>
             <strong>{totalScore}</strong>
+            <span className="trust-badge">신뢰도 {trustScore}</span>
           </div>
         </div>
         <div className="course-card__metrics">

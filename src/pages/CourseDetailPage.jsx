@@ -1,10 +1,11 @@
-import { ChevronRight, MapPinned, Route, Sparkles, Star } from 'lucide-react';
+import { ChevronRight, MapPinned, Route, ShieldCheck, Sparkles, Star } from 'lucide-react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import CourseMap from '../components/CourseMap';
 import ScoreBar from '../components/ScoreBar';
 import { findCourse } from '../utils/courseStorage';
 import { getAverageRating, getReviewsForCourse } from '../utils/reviewStorage';
 import { calculateTripickScore } from '../utils/score';
+import { calculateTrustScore } from '../utils/trustScore';
 
 function formatDate(isoString) {
   const d = new Date(isoString);
@@ -27,6 +28,25 @@ function StarRow({ rating, size = 14 }) {
   );
 }
 
+function TrustItem({ item }) {
+  const pct = Math.round((item.value / item.max) * 100);
+  return (
+    <div className="trust-item">
+      <div className="trust-item__header">
+        <span className="trust-item__label">{item.label}</span>
+        <span className="trust-item__value">
+          {item.value}
+          <small>/{item.max}</small>
+        </span>
+      </div>
+      <div className="trust-item__bar">
+        <div className="trust-item__fill" style={{ width: `${pct}%` }} />
+      </div>
+      <p className="trust-item__desc">{item.description}</p>
+    </div>
+  );
+}
+
 function CourseDetailPage() {
   const { courseId } = useParams();
   const course = findCourse(courseId);
@@ -37,13 +57,18 @@ function CourseDetailPage() {
 
   const reviews = getReviewsForCourse(courseId);
   const avgFromReviews = getAverageRating(courseId);
-  // Use user review average when available; fall back to course's original rating
   const effectiveRating = avgFromReviews ?? course.averageRating;
 
   const { totalScore, performerScore, ratingScore } = calculateTripickScore({
     ...course,
     averageRating: effectiveRating,
   });
+
+  const trustData = calculateTrustScore(course, reviews);
+
+  const hasRecommendations =
+    Array.isArray(course.recommendationReasons) &&
+    course.recommendationReasons.length > 0;
 
   return (
     <div className="page">
@@ -79,6 +104,26 @@ function CourseDetailPage() {
           <ScoreBar label="완주율 50%" value={course.completionRate} tone="green" />
           <ScoreBar label="만족도 30%" value={ratingScore} tone="navy" />
           <ScoreBar label="수행자 수 20%" value={performerScore} tone="mint" />
+        </div>
+      </section>
+
+      <section className="section section--compact">
+        <div className="trust-panel">
+          <div className="trust-panel__headline">
+            <div>
+              <p className="section__eyebrow">Trust Score</p>
+              <h2 className="trust-panel__score">{trustData.score}</h2>
+            </div>
+            <ShieldCheck size={22} color="var(--navy)" />
+          </div>
+          <p className="formula">
+            신뢰도 = 완주율 · 리뷰 신뢰도 · 수행자 수 · GPS 검증 · 데이터 품질
+          </p>
+          <div className="trust-items">
+            {trustData.items.map((item) => (
+              <TrustItem key={item.label} item={item} />
+            ))}
+          </div>
         </div>
       </section>
 
@@ -153,6 +198,30 @@ function CourseDetailPage() {
           ))}
         </div>
       </section>
+
+      {hasRecommendations && (
+        <section className="section section--compact">
+          <div className="section__header">
+            <div>
+              <p className="section__eyebrow">Why These Spots</p>
+              <h2>추천 근거</h2>
+            </div>
+          </div>
+          <div className="reason-list">
+            {course.spots.map((spot, i) =>
+              course.recommendationReasons[i] ? (
+                <div key={spot.id} className="reason-item">
+                  <div className="reason-item__index">{i + 1}</div>
+                  <div className="reason-item__body">
+                    <strong>{spot.name}</strong>
+                    <p>{course.recommendationReasons[i]}</p>
+                  </div>
+                </div>
+              ) : null,
+            )}
+          </div>
+        </section>
+      )}
 
       {reviews.length > 0 && (
         <section className="section section--compact">

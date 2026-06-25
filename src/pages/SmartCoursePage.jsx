@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useJeonjuSpots } from '../hooks/useJeonjuSpots';
 import { saveUserCourse } from '../utils/courseStorage';
 import { calculateDistanceMeters } from '../utils/geo';
+import { generateRecommendationReasons } from '../utils/recommendation';
 
 const STYLE_OPTIONS = ['감성', '역사', '야경', '먹거리', '자연', '로컬'];
 const DURATION_OPTIONS = ['짧은 코스', '반나절', '하루'];
@@ -98,6 +99,11 @@ function SmartCoursePage() {
     const now = Date.now();
     const title = `${style} ${duration} 전주 코스`;
     const firstImageUrl = selected[0]?.imageUrl ?? '';
+    const recommendationReasons = generateRecommendationReasons(selected, {
+      style,
+      duration,
+      transport,
+    });
 
     setGeneratedCourse({
       id: `smart-${now}`,
@@ -119,6 +125,7 @@ function SmartCoursePage() {
       })),
       isUserCreated: true,
       transport,
+      recommendationReasons,
     });
     setSaved(false);
   };
@@ -245,6 +252,11 @@ function SmartCoursePage() {
                   <div className="spot-item__index">{i + 1}</div>
                   <div className="spot-item__body">
                     <strong>{spot.name}</strong>
+                    {generatedCourse.recommendationReasons?.[i] && (
+                      <span className="spot-reason">
+                        {generatedCourse.recommendationReasons[i]}
+                      </span>
+                    )}
                   </div>
                   <MapPin size={14} style={{ color: 'var(--green)', flexShrink: 0 }} />
                 </div>

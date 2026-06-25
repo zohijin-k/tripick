@@ -139,6 +139,32 @@ src/
 생성된 코스는 **이 코스 저장하기** 버튼으로 localStorage에 저장되며,
 홈 화면 **내가 만든 코스** 섹션에 즉시 표시됩니다.
 
+## Recommendation Reason
+
+Smart Course Builder로 코스를 생성하면 각 장소마다 추천 근거가 함께 생성됩니다 (`src/utils/recommendation.js`).
+
+- **입력**: 선택된 관광지 배열 + `{ style, duration, transport }` 취향 정보
+- **출력**: 장소 순서와 동일한 추천 문장 배열 (`string[]`)
+- 여행 스타일별 문구(감성·역사·야경 등)와 카테고리별 설명, 이동 방식 문구를 조합하여 생성
+- SmartCoursePage 미리보기에 장소별 표시, 저장 시 `recommendationReasons` 필드로 localStorage에 함께 저장
+- CourseDetailPage에서 "추천 근거" 섹션으로 재표시 (필드가 없는 기존 코스는 자동 생략)
+
+## Trust Score
+
+기존 TRIPICK Score와 별도로, 코스의 신뢰도를 나타내는 보조 지표입니다 (`src/utils/trustScore.js`).
+
+| 항목 | 비중 | 설명 |
+|---|---|---|
+| 완주율 | 35점 | 실제 수행 완료 비율 |
+| 리뷰 신뢰도 | 25점 | 리뷰 수(15) + 평균 별점(10) |
+| 수행자 수 | 20점 | log₁₀ 스케일 (100명 기준 만점) |
+| GPS 검증 | 10점 | 좌표 정보가 있는 지점 비율 |
+| 데이터 품질 | 10점 | 이미지·주소·관광데이터 충실도 |
+
+- CourseDetailPage에서 항목별 바 차트로 시각화
+- CourseCard에서 "신뢰도 XX" 배지로 축약 표시
+- `recommendationReasons` 미보유 코스(기존 mockCourses 등)에서도 정상 동작
+
 ## CourseMap (Mock 지도)
 
 `src/components/CourseMap.jsx`는 외부 지도 API 없이 동작하는 순수 CSS + SVG 기반 지도 컴포넌트입니다.
