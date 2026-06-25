@@ -11,7 +11,9 @@ function CourseCard({ course, rank }) {
         className="course-card__image"
         style={{ backgroundImage: `url(${course.imageUrl})` }}
       >
-        <div className="course-card__badge">TOP {rank}</div>
+        <div className="course-card__badge">
+          {rank ? `TOP ${rank}` : 'MY'}
+        </div>
       </div>
       <div className="course-card__body">
         <div className="course-card__header">

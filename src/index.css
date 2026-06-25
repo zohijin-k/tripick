@@ -525,9 +525,9 @@ input {
   position: sticky;
   bottom: 0;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  padding: 12px 14px 18px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  padding: 12px 10px 18px;
   background: rgba(255, 255, 255, 0.98);
   border-top: 1px solid var(--border);
 }
@@ -547,6 +547,193 @@ input {
 .bottom-nav__item.active {
   background: #eff7f4;
   color: var(--green);
+}
+
+/* ── CreateCoursePage ── */
+
+.page--create {
+  padding-top: 20px;
+}
+
+.create-nav {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.create-nav__title {
+  margin: 2px 0 0;
+  font-size: 20px;
+  color: var(--navy);
+  line-height: 1.2;
+}
+
+.icon-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--navy);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.create-form {
+  display: grid;
+  gap: 24px;
+}
+
+.form-group {
+  display: grid;
+  gap: 10px;
+}
+
+.form-label {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.form-label-sub {
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.form-input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  font-size: 15px;
+  color: var(--navy);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.form-input:focus {
+  border-color: var(--green);
+}
+
+.theme-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.theme-btn {
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.theme-btn--active {
+  background: #edf6f3;
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.selected-spots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.selected-spot-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #edf6f3;
+  border: 1px solid var(--mint);
+  border-radius: 999px;
+  padding: 5px 8px 5px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--green);
+}
+
+.selected-spot-tag button {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(79, 178, 134, 0.22);
+  color: var(--green);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.spot-picker {
+  display: grid;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.spot-pick-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--navy);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.spot-pick-item--selected {
+  background: #f4fbf7;
+  border-color: var(--green);
+}
+
+.spot-pick-item__pin {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.spot-pick-item--selected .spot-pick-item__pin {
+  color: var(--green);
+}
+
+.spot-pick-item__name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 0;
+}
+
+.spot-pick-item__cat {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.spot-pick-item__check {
+  color: var(--green);
+  flex-shrink: 0;
 }
 
 @media (max-width: 480px) {

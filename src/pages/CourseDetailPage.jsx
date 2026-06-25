@@ -1,12 +1,12 @@
 import { ChevronRight, MapPinned, Route, Sparkles, Star } from 'lucide-react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import ScoreBar from '../components/ScoreBar';
-import mockCourses from '../data/mockCourses';
+import { findCourse } from '../utils/courseStorage';
 import { calculateTripickScore } from '../utils/score';
 
 function CourseDetailPage() {
   const { courseId } = useParams();
-  const course = mockCourses.find((item) => item.id === courseId);
+  const course = findCourse(courseId);
 
   if (!course) {
     return <Navigate to="/" replace />;

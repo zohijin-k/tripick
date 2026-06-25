@@ -1,7 +1,7 @@
 import { CheckCircle2, Crosshair, MapPinned, Navigation, RefreshCw } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
-import mockCourses from '../data/mockCourses';
+import { findCourse } from '../utils/courseStorage';
 import {
   calculateDistanceMeters,
   canAutoCheckIn,
@@ -12,7 +12,7 @@ const storageKey = (courseId) => `tripick-trace-${courseId}`;
 
 function TracePage() {
   const { courseId } = useParams();
-  const course = mockCourses.find((item) => item.id === courseId);
+  const course = findCourse(courseId);
   const [visitedSpotIds, setVisitedSpotIds] = useState([]);
   const [statusMessage, setStatusMessage] = useState('체크인 준비가 되었습니다.');
   const [isLocating, setIsLocating] = useState(false);

@@ -2,6 +2,7 @@ import { Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import CourseCard from '../components/CourseCard';
 import mockCourses from '../data/mockCourses';
+import { getUserCourses } from '../utils/courseStorage';
 import { calculateTripickScore } from '../utils/score';
 
 function HomePage() {
@@ -16,12 +17,15 @@ function HomePage() {
       .sort((a, b) => b.calculatedScore - a.calculatedScore);
   }, []);
 
-  const filteredCourses = rankedCourses.filter((course) => {
+  const userCourses = useMemo(() => getUserCourses(), []);
+
+  const matchesQuery = (course) => {
     const target = `${course.title} ${course.area} ${course.theme}`.toLowerCase();
     return target.includes(query.toLowerCase());
-  });
+  };
 
-  const topFive = filteredCourses.slice(0, 5);
+  const topFive = rankedCourses.filter(matchesQuery).slice(0, 5);
+  const filteredUserCourses = userCourses.filter(matchesQuery);
 
   return (
     <div className="page page--home">
@@ -43,6 +47,23 @@ function HomePage() {
         </label>
       </section>
 
+      {filteredUserCourses.length > 0 && (
+        <section className="section">
+          <div className="section__header">
+            <div>
+              <p className="section__eyebrow">My Courses</p>
+              <h2>내가 만든 코스</h2>
+            </div>
+            <span className="section__count">{filteredUserCourses.length}개</span>
+          </div>
+          <div className="course-list">
+            {filteredUserCourses.map((course) => (
+              <CourseCard key={course.id} course={course} />
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="section">
         <div className="section__header">
           <div>
@@ -54,11 +75,7 @@ function HomePage() {
 
         <div className="course-list">
           {topFive.map((course, index) => (
-            <CourseCard
-              key={course.id}
-              course={course}
-              rank={index + 1}
-            />
+            <CourseCard key={course.id} course={course} rank={index + 1} />
           ))}
         </div>
       </section>
