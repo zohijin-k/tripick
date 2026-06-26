@@ -1,9 +1,31 @@
-node_modules
-dist
+# OS
 .DS_Store
 .npm-cache
+
+# Dependencies
+node_modules
+web/node_modules
+app/node_modules
+backend/node_modules
+
+# Build outputs
+dist
+web/dist
+app/dist
+backend/dist
+
+# Vite cache
+.vite
+web/.vite
 
 # env — API 키가 포함되므로 절대 커밋 금지
 .env
 .env.local
 .env.*.local
+web/.env
+web/.env.local
+web/.env.*.local
+app/.env
+app/.env.local
+backend/.env
+backend/.env.local
