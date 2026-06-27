@@ -8,10 +8,22 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablets": false,
-      "bundleIdentifier": "com.tripick.app"
+      "bundleIdentifier": "com.tripick.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "현재 위치를 사용하여 관광지 체크인 기능을 제공합니다."
+      }
     },
     "android": {
-      "package": "com.tripick.app"
-    }
+      "package": "com.tripick.app",
+      "permissions": ["android.permission.ACCESS_FINE_LOCATION"]
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "현재 위치를 사용하여 관광지 체크인 기능을 제공합니다."
+        }
+      ]
+    ]
   }
 }
