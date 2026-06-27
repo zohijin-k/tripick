@@ -1,27 +1,44 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import mockCourses from '../data/mockCourses';
 import type { Course } from '../types/course';
+import type { RootStackParamList } from '../navigation/types';
 
-// CourseCard를 거치지 않고 HomeScreen에서 직접 렌더링
-// — score 계산 오류가 있어도 카드가 반드시 뜨도록 분리
-function InlineCourseCard({ course, rank }: { course: Course; rank: number }) {
-  const ACCENT: Record<string, string> = {
-    야경: '#0f766e',
-    카페: '#166534',
-    예술: '#047857',
-    로컬: '#15803d',
-    시장: '#0f766e',
-    자연: '#065f46',
-    음식: '#b45309',
-    역사: '#1d4ed8',
-  };
+type HomeNavProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
+
+const ACCENT: Record<string, string> = {
+  야경: '#0f766e',
+  카페: '#166534',
+  예술: '#047857',
+  로컬: '#15803d',
+  시장: '#0f766e',
+  자연: '#065f46',
+  음식: '#b45309',
+  역사: '#1d4ed8',
+};
+
+function InlineCourseCard({
+  course,
+  rank,
+  onPress,
+}: {
+  course: Course;
+  rank: number;
+  onPress: () => void;
+}) {
   const accent = ACCENT[course.theme] ?? '#0f8b6d';
 
   return (
-    <View style={cardStyles.card}>
-      {/* 색상 헤더 */}
+    <TouchableOpacity style={cardStyles.card} onPress={onPress} activeOpacity={0.82}>
       <View style={[cardStyles.header, { backgroundColor: accent }]}>
         <View style={cardStyles.rankBadge}>
           <Text style={cardStyles.rankText}>TOP {rank}</Text>
@@ -34,7 +51,6 @@ function InlineCourseCard({ course, rank }: { course: Course; rank: number }) {
         </Text>
       </View>
 
-      {/* 본문 */}
       <View style={cardStyles.body}>
         <Text style={cardStyles.title} numberOfLines={1}>
           {course.title}
@@ -66,15 +82,16 @@ function InlineCourseCard({ course, rank }: { course: Course; rank: number }) {
             <Text style={cardStyles.metricLabel}>지점 수</Text>
           </View>
         </View>
+
+        <Text style={cardStyles.tapHint}>탭하여 자세히 보기 →</Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
 export function HomeScreen() {
-  // 안전한 배열 확보
+  const navigation = useNavigation<HomeNavProp>();
   const allCourses: Course[] = Array.isArray(mockCourses) ? mockCourses : [];
-  // score 계산 없이 단순 slice — 원인 격리용
   const displayCourses = allCourses.slice(0, 5);
 
   return (
@@ -84,15 +101,6 @@ export function HomeScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── 디버그 바 ── */}
-        <View style={styles.debugBar}>
-          <Text style={styles.debugText}>
-            [debug] isArray={String(Array.isArray(mockCourses))}
-            {'  '}mockCourses.length={allCourses.length}
-            {'  '}display={displayCourses.length}
-          </Text>
-        </View>
-
         {/* ── 히어로 ── */}
         <View style={styles.hero}>
           <Text style={styles.eyebrow}>Participatory Tourism Ranking</Text>
@@ -154,13 +162,15 @@ export function HomeScreen() {
         {displayCourses.length === 0 ? (
           <View style={styles.emptyBox}>
             <Text style={styles.emptyText}>사용 가능한 데이터 없음</Text>
-            <Text style={styles.emptyHint}>
-              mockCourses 길이: {allCourses.length}
-            </Text>
           </View>
         ) : (
           displayCourses.map((course, index) => (
-            <InlineCourseCard key={course.id} course={course} rank={index + 1} />
+            <InlineCourseCard
+              key={course.id}
+              course={course}
+              rank={index + 1}
+              onPress={() => navigation.navigate('CourseDetail', { courseId: course.id })}
+            />
           ))
         )}
 
@@ -172,7 +182,6 @@ export function HomeScreen() {
   );
 }
 
-// ── 카드 스타일 ──────────────────────────────────
 const cardStyles = StyleSheet.create({
   card: {
     backgroundColor: '#ffffff',
@@ -246,6 +255,7 @@ const cardStyles = StyleSheet.create({
   metrics: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 10,
   },
   metric: {
     flex: 1,
@@ -266,9 +276,15 @@ const cardStyles = StyleSheet.create({
     height: 28,
     backgroundColor: '#dce6ec',
   },
+  tapHint: {
+    fontSize: 11,
+    color: '#0f8b6d',
+    fontWeight: '600',
+    textAlign: 'right',
+    marginTop: 2,
+  },
 });
 
-// ── 페이지 스타일 ─────────────────────────────────
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
@@ -281,19 +297,6 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 40,
   },
-
-  debugBar: {
-    backgroundColor: '#fef9c3',
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    marginBottom: 12,
-  },
-  debugText: {
-    fontSize: 10,
-    color: '#713f12',
-  },
-
   hero: {
     backgroundColor: '#13315c',
     borderRadius: 20,
@@ -345,7 +348,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.15)',
     marginHorizontal: 8,
   },
-
   formulaCard: {
     backgroundColor: '#ffffff',
     borderRadius: 14,
@@ -377,7 +379,6 @@ const styles = StyleSheet.create({
     color: '#5c6b7a',
     lineHeight: 16,
   },
-
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -407,7 +408,6 @@ const styles = StyleSheet.create({
     color: '#0f8b6d',
     fontWeight: '600',
   },
-
   emptyBox: {
     backgroundColor: '#fff4e6',
     borderRadius: 10,
@@ -419,13 +419,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#c2410c',
-    marginBottom: 4,
   },
-  emptyHint: {
-    fontSize: 11,
-    color: '#92400e',
-  },
-
   bottomNote: {
     textAlign: 'center',
     color: '#8a9db0',
