@@ -4,6 +4,7 @@ export type RootStackParamList = {
   Home: undefined;
   CourseDetail: { courseId: string };
   Trace: { courseId: string };
+  SmartCourse: undefined;
 };
 
 export type HomeScreenProps = NativeStackScreenProps<RootStackParamList, 'Home'>;

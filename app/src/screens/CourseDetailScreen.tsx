@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -11,7 +11,7 @@ import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../navigation/types';
-import type { Review } from '../types/course';
+import type { Course, Review } from '../types/course';
 import { DetailHeader } from '../components/detail/DetailHeader';
 import { ScoreCard } from '../components/detail/ScoreCard';
 import { TrustCard } from '../components/detail/TrustCard';
@@ -20,6 +20,7 @@ import { calculateTripickScore } from '../utils/score';
 import { calculateTrustScore } from '../utils/trustScore';
 import { getReviewsForCourse, getAverageRating } from '../utils/reviewStorage';
 import mockCourses from '../data/mockCourses';
+import { findCourse } from '../utils/courseStorage';
 
 // ─── Navigation types ─────────────────────────────────────────────────────────
 
@@ -182,14 +183,26 @@ export function CourseDetailScreen() {
   const route = useRoute<DetailRouteProp>();
   const { courseId } = route.params;
 
+  // ── Course state: sync init from mockCourses, async fallback for user courses ─
+  const [course, setCourse] = useState<Course | null>(
+    () => mockCourses.find((c) => c.id === courseId) ?? null,
+  );
+  const [courseLoaded, setCourseLoaded] = useState<boolean>(
+    () => mockCourses.some((c) => c.id === courseId),
+  );
+
+  useEffect(() => {
+    if (courseLoaded) return;
+    let active = true;
+    findCourse(courseId).then((found) => {
+      if (active) { setCourse(found); setCourseLoaded(true); }
+    });
+    return () => { active = false; };
+  }, [courseId, courseLoaded]);
+
   // ── Review state (all hooks before early return) ───────────────────────────
   const [reviews, setReviews] = useState<Review[]>([]);
   const [avgRating, setAvgRating] = useState<number | null>(null);
-
-  const course = useMemo(
-    () => mockCourses.find((c) => c.id === courseId) ?? null,
-    [courseId],
-  );
 
   // Reload reviews every time screen gains focus (e.g. after completing Trace)
   useFocusEffect(
@@ -214,6 +227,15 @@ export function CourseDetailScreen() {
   );
 
   // ── Not-found guard (after all hooks) ─────────────────────────────────────
+  if (!courseLoaded) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.notFound}>
+          <Text style={styles.notFoundText}>코스 불러오는 중…</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
   if (!course) {
     return (
       <SafeAreaView style={styles.safe}>

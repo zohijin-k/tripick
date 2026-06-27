@@ -14,8 +14,9 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import type { RootStackParamList } from '../navigation/types';
-import type { Spot } from '../types/course';
+import type { Course, Spot } from '../types/course';
 import mockCourses from '../data/mockCourses';
+import { findCourse } from '../utils/courseStorage';
 import {
   calculateDistanceMeters,
   isWithinRadius,
@@ -459,11 +460,22 @@ export function TraceScreen() {
   // ── Review state ───────────────────────────────────────────────────────────
   const [showReviewModal, setShowReviewModal] = useState(false);
 
-  // ── Course lookup ──────────────────────────────────────────────────────────
-  const course = useMemo(
+  // ── Course state: sync init from mockCourses, async fallback for user courses ─
+  const [course, setCourse] = useState<Course | null>(
     () => mockCourses.find((c) => c.id === courseId) ?? null,
-    [courseId],
   );
+  const [courseLoaded, setCourseLoaded] = useState<boolean>(
+    () => mockCourses.some((c) => c.id === courseId),
+  );
+
+  useEffect(() => {
+    if (courseLoaded) return;
+    let active = true;
+    findCourse(courseId).then((found) => {
+      if (active) { setCourse(found); setCourseLoaded(true); }
+    });
+    return () => { active = false; };
+  }, [courseId, courseLoaded]);
 
   // ── Derived values ─────────────────────────────────────────────────────────
   const allSpots = course?.spots ?? [];
@@ -602,6 +614,15 @@ export function TraceScreen() {
   }, [courseId]);
 
   // ── Not-found guard (all hooks above) ─────────────────────────────────────
+  if (!courseLoaded) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.notFound}>
+          <Text style={styles.notFoundText}>코스 불러오는 중…</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
   if (!course) {
     return (
       <SafeAreaView style={styles.safe}>
