@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "TRIPICK",
+    "slug": "tripick",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablets": false,
+      "bundleIdentifier": "com.tripick.app"
+    },
+    "android": {
+      "package": "com.tripick.app"
+    }
+  }
+}

@@ -28,7 +28,7 @@ npm run dev
 | 패키지 | 상태 | 기술 스택 |
 |---|---|---|
 | `web/` | ✅ MVP 완성 | React 18 · Vite · react-router-dom |
-| `app/` | 🔜 예정 | React Native · Expo |
+| `app/` | 🚧 진행 중 | React Native · Expo 51 · TypeScript |
 | `backend/` | 🔜 예정 | NestJS / Spring Boot |
 
 ## 주요 기능 (web)
@@ -41,3 +41,13 @@ npm run dev
 - 한국관광공사 TourAPI v2 연동 (키 없으면 내장 mock 데이터 fallback)
 
 자세한 내용은 [`web/README.md`](web/README.md)를 참조하세요.
+
+## 앱 개발 실행
+
+```bash
+cd app
+npm install
+npx expo start
+```
+
+자세한 내용은 [`app/README.md`](app/README.md)를 참조하세요.
