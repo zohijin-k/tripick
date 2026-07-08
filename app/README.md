@@ -19,6 +19,33 @@ TypeScript 타입 검사만 실행:
 npm run ts-check
 ```
 
+## 환경 변수 설정 (TourAPI)
+
+```bash
+cd app
+cp .env.example .env   # EXPO_PUBLIC_TOUR_API_KEY 입력 후 저장
+```
+
+- `EXPO_PUBLIC_TOUR_API_KEY` — 한국관광공사 TourAPI v2 서비스 키. [data.go.kr](https://www.data.go.kr/data/15101578/openapi.do)에서 발급받으며, 반드시 **일반 인증키 (Decoding)** 값을 사용해야 합니다 (Encoding 키를 넣으면 이중 인코딩으로 인증이 실패합니다).
+- Expo는 `EXPO_PUBLIC_` 접두사가 붙은 변수만 앱 번들에 인라인되어 `process.env.EXPO_PUBLIC_TOUR_API_KEY`로 읽을 수 있습니다. 웹(Vite)의 `import.meta.env`는 RN에서 사용할 수 없습니다.
+- `app/.env`는 `.gitignore`에 포함되어 있어 **절대 커밋되지 않습니다**.
+- 키가 없거나 요청이 실패하면 자동으로 `src/data/jeonjuSpots.ts`의 mock 전주 관광지 데이터로 fallback하므로, 키 없이도 앱 전체 기능(Smart Course 포함)이 정상 동작합니다.
+
+### Fallback 구조
+
+```
+useTourSpots() 훅
+  └─ fetchJeonjuSpots() (src/api/tourApi.ts)
+       ├─ 키 없음            → null 반환
+       ├─ 네트워크/인증 오류 → null 반환 (try/catch)
+       ├─ 응답은 왔지만 0건  → [] 반환
+       └─ 정상 응답          → 정규화된 Spot[] 반환
+  └─ null 또는 빈 배열이면 jeonjuSpots.ts mock 데이터로 자동 전환
+  └─ { spots, loading, error, source: 'api' | 'mock' } 반환
+```
+
+`SmartCourseScreen`은 이 훅으로 관광지 후보를 받아 스마트 코스를 생성하며, 화면 상단에 현재 데이터 소스(`TourAPI 연동` / `Mock 데이터`) 배지를 표시합니다.
+
 ## 현재 구현 화면
 
 ### HomeScreen

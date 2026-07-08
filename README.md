@@ -47,7 +47,8 @@ npm run dev
 ```bash
 cd app
 npm install
+cp .env.example .env   # EXPO_PUBLIC_TOUR_API_KEY 입력 (없어도 mock 데이터로 동작)
 npx expo start
 ```
 
-자세한 내용은 [`app/README.md`](app/README.md)를 참조하세요.
+앱도 한국관광공사 TourAPI v2 연동 구조를 갖추고 있으며, 키 없이도 mock 데이터로 자동 fallback됩니다. 자세한 내용은 [`app/README.md`](app/README.md)를 참조하세요.

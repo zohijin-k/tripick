@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   ScrollView,
   StyleSheet,
@@ -12,9 +13,9 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 import type { Course, Spot } from '../types/course';
-import mockCourses from '../data/mockCourses';
 import { generateRecommendationReasons } from '../utils/recommendation';
 import { saveUserCourse } from '../utils/courseStorage';
+import { useTourSpots } from '../hooks/useTourSpots';
 
 // ─── Navigation type ──────────────────────────────────────────────────────────
 
@@ -32,11 +33,12 @@ type TransportOption = typeof TRANSPORTS[number];
 
 // ─── Style → theme mapping ────────────────────────────────────────────────────
 
+// TourAPI mapCategory()와 jeonjuSpots.ts mock 데이터가 공유하는 category 어휘 기준
 const STYLE_THEMES: Record<StyleOption, string[]> = {
   감성: ['카페', '예술'],
-  역사: ['로컬'],
+  역사: ['로컬', '역사'],
   야경: ['야경'],
-  먹거리: ['시장'],
+  먹거리: ['시장', '음식'],
   자연: ['자연'],
   로컬: ['로컬'],
 };
@@ -74,6 +76,7 @@ const TRANSPORT_EMOJI: Record<TransportOption, string> = {
 // ─── Course builder ────────────────────────────────────────────────────────────
 
 function buildCourse(
+  allSpots: Spot[],
   style: StyleOption,
   duration: DurationOption,
   transport: TransportOption,
@@ -81,26 +84,11 @@ function buildCourse(
   const targetCount = DURATION_COUNT[duration];
   const matchingThemes = STYLE_THEMES[style];
 
-  // Collect unique spots across all mockCourses (keyed by name)
-  const spotMap = new Map<string, { spot: Spot; theme: string }>();
-  for (const course of mockCourses) {
-    for (const spot of course.spots) {
-      if (!spotMap.has(spot.name)) {
-        spotMap.set(spot.name, { spot, theme: course.theme });
-      }
-    }
-  }
+  if (allSpots.length === 0) return null;
 
-  const allEntries = [...spotMap.values()];
-  if (allEntries.length === 0) return null;
-
-  // Style-matching spots first, then fill from rest
-  const matched = allEntries
-    .filter((e) => matchingThemes.includes(e.theme))
-    .map((e) => e.spot);
-  const unmatched = allEntries
-    .filter((e) => !matchingThemes.includes(e.theme))
-    .map((e) => e.spot);
+  // Style-matching spots first, then fill from rest (TourAPI 또는 mock 후보 공통)
+  const matched = allSpots.filter((spot) => spot.category && matchingThemes.includes(spot.category));
+  const unmatched = allSpots.filter((spot) => !matched.includes(spot));
 
   const candidates = [...matched, ...unmatched];
   const ts = Date.now();
@@ -297,18 +285,20 @@ export function SmartCourseScreen() {
   const [generatedCourse, setGeneratedCourse] = useState<Course | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  const { spots: tourSpots, loading: spotsLoading, source: spotsSource } = useTourSpots();
+
   const allSelected = selectedStyle && selectedDuration && selectedTransport;
   const accent = selectedStyle ? (ACCENT_FOR_STYLE[selectedStyle] ?? '#0f8b6d') : '#0f8b6d';
 
   const handleGenerate = useCallback(() => {
     if (!selectedStyle || !selectedDuration || !selectedTransport) return;
-    const course = buildCourse(selectedStyle, selectedDuration, selectedTransport);
+    const course = buildCourse(tourSpots, selectedStyle, selectedDuration, selectedTransport);
     if (!course) {
       Alert.alert('코스 생성 실패', '선택한 조건에 맞는 관광지를 찾지 못했습니다.');
       return;
     }
     setGeneratedCourse(course);
-  }, [selectedStyle, selectedDuration, selectedTransport]);
+  }, [tourSpots, selectedStyle, selectedDuration, selectedTransport]);
 
   const handleStyleSelect = useCallback((s: StyleOption) => {
     setSelectedStyle(s);
@@ -368,6 +358,33 @@ export function SmartCourseScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {/* ── 관광지 데이터 소스 ── */}
+        {spotsLoading ? (
+          <View style={styles.sourceCard}>
+            <ActivityIndicator size="small" color="#0f8b6d" />
+            <Text style={styles.sourceLoadingText}>전주 관광지 정보를 불러오는 중입니다…</Text>
+          </View>
+        ) : (
+          <View style={styles.sourceCard}>
+            <View
+              style={[
+                styles.sourceBadge,
+                spotsSource === 'api' ? styles.sourceBadgeApi : styles.sourceBadgeMock,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.sourceBadgeText,
+                  spotsSource === 'api' ? styles.sourceBadgeTextApi : styles.sourceBadgeTextMock,
+                ]}
+              >
+                {spotsSource === 'api' ? '🛰️ TourAPI 연동' : '📦 Mock 데이터'}
+              </Text>
+            </View>
+            <Text style={styles.sourceCountText}>{tourSpots.length}개 관광지 후보</Text>
+          </View>
+        )}
+
         {/* ── 여행 스타일 ── */}
         <View style={styles.sectionCard}>
           <SectionLabel>🎭  여행 스타일</SectionLabel>
@@ -422,14 +439,18 @@ export function SmartCourseScreen() {
         <TouchableOpacity
           style={[
             styles.generateBtn,
-            allSelected ? { backgroundColor: accent } : styles.generateBtnDisabled,
+            allSelected && !spotsLoading ? { backgroundColor: accent } : styles.generateBtnDisabled,
           ]}
           onPress={handleGenerate}
-          disabled={!allSelected}
+          disabled={!allSelected || spotsLoading}
           activeOpacity={0.85}
         >
           <Text style={styles.generateBtnText}>
-            {allSelected ? '✦  코스 생성하기' : '위 항목을 모두 선택하세요'}
+            {spotsLoading
+              ? '관광지 정보 불러오는 중…'
+              : allSelected
+                ? '✦  코스 생성하기'
+                : '위 항목을 모두 선택하세요'}
           </Text>
         </TouchableOpacity>
 
@@ -513,6 +534,26 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
+
+  sourceCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  sourceLoadingText: { fontSize: 12, color: '#5c6b7a', fontWeight: '600' },
+  sourceBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+  },
+  sourceBadgeApi: { backgroundColor: '#e6f4f1', borderColor: '#0f8b6d' },
+  sourceBadgeMock: { backgroundColor: '#f1f5f9', borderColor: '#cbd5e1' },
+  sourceBadgeText: { fontSize: 11, fontWeight: '700' },
+  sourceBadgeTextApi: { color: '#0f8b6d' },
+  sourceBadgeTextMock: { color: '#64748b' },
+  sourceCountText: { fontSize: 12, color: '#8a9db0', fontWeight: '600' },
   chipGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
