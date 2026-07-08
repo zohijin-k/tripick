@@ -16,6 +16,7 @@ import { DetailHeader } from '../components/detail/DetailHeader';
 import { ScoreCard } from '../components/detail/ScoreCard';
 import { TrustCard } from '../components/detail/TrustCard';
 import { SpotList } from '../components/detail/SpotList';
+import { CourseMapPreview } from '../components/map/CourseMapPreview';
 import { calculateTripickScore } from '../utils/score';
 import { calculateTrustScore } from '../utils/trustScore';
 import { getReviewsForCourse, getAverageRating } from '../utils/reviewStorage';
@@ -283,6 +284,7 @@ export function CourseDetailScreen() {
             </View>
           )}
 
+          <CourseMapPreview spots={course.spots} height={232} />
           <SpotList spots={course.spots} accentColor={accent} />
 
           {/* Reviews loaded from AsyncStorage */}

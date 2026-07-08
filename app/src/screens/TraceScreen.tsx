@@ -30,6 +30,7 @@ import {
 } from '../utils/traceStorage';
 import { saveReview, hasReviewedCourse } from '../utils/reviewStorage';
 import { ReviewModal } from '../components/ReviewModal';
+import { CourseMapPreview } from '../components/map/CourseMapPreview';
 
 // ─── Navigation types ─────────────────────────────────────────────────────────
 
@@ -667,6 +668,14 @@ export function TraceScreen() {
           distanceM={distanceToCurrentSpot}
           accent={accent}
           isCompleted={isCompleted}
+        />
+
+        <CourseMapPreview
+          spots={allSpots}
+          visitedSpotIds={visitedSpotIds}
+          activeSpotId={currentSpot?.id ?? null}
+          userLocation={userLocation}
+          height={236}
         />
 
         {/* Spot list */}
