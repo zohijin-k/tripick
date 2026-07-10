@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { Spot } from '../types/course';
-import { fetchJeonjuSpots } from '../api/tourApi';
+import { fetchJeonjuSpots, type BackendTourSpot } from '../api/backendApi';
 import jeonjuSpots from '../data/jeonjuSpots';
 
-export type TourSpotsSource = 'api' | 'mock';
+export type TourSpotsSource = 'backend' | 'mock';
 
 export interface UseTourSpotsResult {
   spots: Spot[];
@@ -12,9 +12,22 @@ export interface UseTourSpotsResult {
   source: TourSpotsSource;
 }
 
+function toSpot(item: BackendTourSpot): Spot {
+  return {
+    id: item.id,
+    name: item.name,
+    category: item.category,
+    lat: item.lat,
+    lng: item.lng,
+    address: item.address || undefined,
+    imageUrl: item.imageUrl || undefined,
+    contentId: item.contentId,
+  };
+}
+
 /**
- * TourAPI 관광지 데이터를 불러온다. 키가 없거나 요청이 실패하면
- * jeonjuSpots.ts의 mock 데이터로 자동 fallback한다.
+ * NestJS backend(TourAPI 프록시)에서 전주 관광지 데이터를 불러온다.
+ * backend URL이 없거나 요청이 실패하면 jeonjuSpots.ts의 mock 데이터로 자동 fallback한다.
  */
 export function useTourSpots(): UseTourSpotsResult {
   const [spots, setSpots] = useState<Spot[]>(jeonjuSpots);
@@ -27,12 +40,12 @@ export function useTourSpots(): UseTourSpotsResult {
 
     (async () => {
       try {
-        const apiSpots = await fetchJeonjuSpots();
+        const backendSpots = await fetchJeonjuSpots();
         if (cancelled) return;
 
-        if (apiSpots && apiSpots.length > 0) {
-          setSpots(apiSpots);
-          setSource('api');
+        if (backendSpots && backendSpots.length > 0) {
+          setSpots(backendSpots.map(toSpot));
+          setSource('backend');
           setError(null);
         } else {
           setSpots(jeonjuSpots);
@@ -42,7 +55,7 @@ export function useTourSpots(): UseTourSpotsResult {
         if (cancelled) return;
         setSpots(jeonjuSpots);
         setSource('mock');
-        setError(err instanceof Error ? err.message : 'TourAPI 요청 중 오류가 발생했습니다.');
+        setError(err instanceof Error ? err.message : 'Backend 요청 중 오류가 발생했습니다.');
       } finally {
         if (!cancelled) setLoading(false);
       }

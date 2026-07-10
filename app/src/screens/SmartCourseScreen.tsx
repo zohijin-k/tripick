@@ -369,16 +369,16 @@ export function SmartCourseScreen() {
             <View
               style={[
                 styles.sourceBadge,
-                spotsSource === 'api' ? styles.sourceBadgeApi : styles.sourceBadgeMock,
+                spotsSource === 'backend' ? styles.sourceBadgeBackend : styles.sourceBadgeMock,
               ]}
             >
               <Text
                 style={[
                   styles.sourceBadgeText,
-                  spotsSource === 'api' ? styles.sourceBadgeTextApi : styles.sourceBadgeTextMock,
+                  spotsSource === 'backend' ? styles.sourceBadgeTextBackend : styles.sourceBadgeTextMock,
                 ]}
               >
-                {spotsSource === 'api' ? '🛰️ TourAPI 연동' : '📦 Mock 데이터'}
+                {spotsSource === 'backend' ? '🛰️ TourAPI' : '📦 Mock Data'}
               </Text>
             </View>
             <Text style={styles.sourceCountText}>{tourSpots.length}개 관광지 후보</Text>
@@ -548,10 +548,10 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderWidth: 1,
   },
-  sourceBadgeApi: { backgroundColor: '#e6f4f1', borderColor: '#0f8b6d' },
+  sourceBadgeBackend: { backgroundColor: '#e6f4f1', borderColor: '#0f8b6d' },
   sourceBadgeMock: { backgroundColor: '#f1f5f9', borderColor: '#cbd5e1' },
   sourceBadgeText: { fontSize: 11, fontWeight: '700' },
-  sourceBadgeTextApi: { color: '#0f8b6d' },
+  sourceBadgeTextBackend: { color: '#0f8b6d' },
   sourceBadgeTextMock: { color: '#64748b' },
   sourceCountText: { fontSize: 12, color: '#8a9db0', fontWeight: '600' },
   chipGrid: {
