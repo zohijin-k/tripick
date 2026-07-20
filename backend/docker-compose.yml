@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tripick-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tripick
+      POSTGRES_PASSWORD: tripick
+      POSTGRES_DB: tripick
+    ports:
+      - "5432:5432"
+    volumes:
+      - tripick-postgres-data:/var/lib/postgresql/data
+
+volumes:
+  tripick-postgres-data:

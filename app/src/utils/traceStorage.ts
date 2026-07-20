@@ -1,9 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { checkInSpot, completeTrace, fetchTraceProgress } from '../api/backendApi';
+import type { LatLng } from './distance';
 
 const key = (courseId: string) => `trace_progress_${courseId}`;
 
 /** Load visited spot IDs for a course. Returns [] on error or first use. */
 export async function getTraceProgress(courseId: string): Promise<string[]> {
+  const serverTrace = await fetchTraceProgress(courseId);
+  if (serverTrace) return serverTrace.visitedSpotIds;
+
   try {
     const raw = await AsyncStorage.getItem(key(courseId));
     if (!raw) return [];
@@ -32,4 +37,31 @@ export async function clearTraceProgress(courseId: string): Promise<void> {
   } catch {
     // silently ignore
   }
+}
+
+export async function saveSpotCheckIn({
+  courseId,
+  spotId,
+  userLocation,
+  isManual,
+}: {
+  courseId: string;
+  spotId: string;
+  userLocation?: LatLng | null;
+  isManual?: boolean;
+}): Promise<string[] | null> {
+  const serverTrace = await checkInSpot({
+    courseId,
+    spotId,
+    lat: userLocation?.lat,
+    lng: userLocation?.lng,
+    isManual,
+  });
+  if (serverTrace) {
+    if (serverTrace.completionRate >= 100) {
+      await completeTrace(courseId);
+    }
+    return serverTrace.visitedSpotIds;
+  }
+  return null;
 }

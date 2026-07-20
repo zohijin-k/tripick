@@ -27,6 +27,7 @@ import {
   getTraceProgress,
   saveTraceProgress,
   clearTraceProgress,
+  saveSpotCheckIn,
 } from '../utils/traceStorage';
 import { saveReview, hasReviewedCourse } from '../utils/reviewStorage';
 import { ReviewModal } from '../components/ReviewModal';
@@ -561,10 +562,20 @@ export function TraceScreen() {
     }
   }, [locationPermission]);
 
-  const markCurrentSpotVisited = useCallback(() => {
+  const markCurrentSpotVisited = useCallback(async (isManual: boolean) => {
     if (!currentSpot) return;
-    setVisitedSpotIds((prev) => [...prev, currentSpot.id]);
-  }, [currentSpot]);
+    const serverVisitedIds = await saveSpotCheckIn({
+      courseId,
+      spotId: currentSpot.id,
+      userLocation,
+      isManual,
+    });
+    if (serverVisitedIds) {
+      setVisitedSpotIds(serverVisitedIds);
+      return;
+    }
+    setVisitedSpotIds((prev) => (prev.includes(currentSpot.id) ? prev : [...prev, currentSpot.id]));
+  }, [courseId, currentSpot, userLocation]);
 
   const handleGpsCheckIn = useCallback(() => {
     if (!currentSpot) return;
@@ -583,11 +594,11 @@ export function TraceScreen() {
       );
       return;
     }
-    markCurrentSpotVisited();
+    markCurrentSpotVisited(false);
   }, [currentSpot, hasSpotCoords, userLocation, canGpsCheckIn, distanceToCurrentSpot, markCurrentSpotVisited]);
 
   const handleManualCheckIn = useCallback(() => {
-    markCurrentSpotVisited();
+    markCurrentSpotVisited(true);
   }, [markCurrentSpotVisited]);
 
   const handleReviewSubmit = useCallback(async (rating: number, comment: string) => {

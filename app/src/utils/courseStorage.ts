@@ -1,11 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Course } from '../types/course';
 import mockCourses from '../data/mockCourses';
+import { createCourse, fetchCourse, fetchMyCourses } from '../api/backendApi';
 
 const USER_COURSES_KEY = 'user_courses';
 
 /** Load all user-created courses. Returns [] on error. */
 export async function getUserCourses(): Promise<Course[]> {
+  const serverCourses = await fetchMyCourses();
+  if (serverCourses) return serverCourses;
+
   try {
     const raw = await AsyncStorage.getItem(USER_COURSES_KEY);
     if (!raw) return [];
@@ -21,6 +25,9 @@ export async function getUserCourses(): Promise<Course[]> {
  * Throws on AsyncStorage failure so the caller can show an error.
  */
 export async function saveUserCourse(course: Course): Promise<void> {
+  const serverCourse = await createCourse(course);
+  if (serverCourse) return;
+
   const existing = await getUserCourses();
   const updated = [course, ...existing.filter((c) => c.id !== course.id)];
   try {
@@ -35,6 +42,9 @@ export async function saveUserCourse(course: Course): Promise<void> {
  * Checks mockCourses first (synchronous-fast), then user-created courses.
  */
 export async function findCourse(courseId: string): Promise<Course | null> {
+  const serverCourse = await fetchCourse(courseId);
+  if (serverCourse) return serverCourse;
+
   const mock = mockCourses.find((c) => c.id === courseId);
   if (mock) return mock;
   const userCourses = await getUserCourses();

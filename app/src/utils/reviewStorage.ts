@@ -1,10 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Review } from '../types/course';
+import { createReview, fetchReviews } from '../api/backendApi';
 
 const key = (courseId: string) => `reviews_${courseId}`;
 
 /** Return all reviews stored for a course. Returns [] on error. */
 export async function getReviewsForCourse(courseId: string): Promise<Review[]> {
+  const serverReviews = await fetchReviews(courseId);
+  if (serverReviews) return serverReviews;
+
   try {
     const raw = await AsyncStorage.getItem(key(courseId));
     if (!raw) return [];
@@ -24,6 +28,9 @@ export async function saveReview({
   rating: number;
   comment: string;
 }): Promise<void> {
+  const serverReview = await createReview({ courseId, rating, comment });
+  if (serverReview) return;
+
   try {
     const existing = await getReviewsForCourse(courseId);
     const newReview: Review = {

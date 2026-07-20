@@ -1,5 +1,5 @@
-// NestJS backend(TourAPI 프록시)와 통신하는 모듈.
-// 앱은 TourAPI를 직접 호출하지 않으며, 이 모듈을 통해서만 backend API를 호출한다.
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { Course, Review } from '../types/course';
 
 export interface BackendTourSpot {
   id: string;
@@ -19,32 +19,151 @@ interface JeonjuSpotsResponse {
   spots: BackendTourSpot[];
 }
 
-/**
- * backend의 /tour/spots/jeonju를 호출해 전주 관광지 데이터를 가져온다.
- *
- * - EXPO_PUBLIC_API_BASE_URL이 없으면 null 반환 (mock으로 fallback해야 함을 의미)
- * - HTTP 오류, 네트워크 오류, 잘못된 응답 형식 등 어떤 예외가 발생해도
- *   앱이 죽지 않도록 항상 null 또는 배열을 반환한다.
- */
-export async function fetchJeonjuSpots(): Promise<BackendTourSpot[] | null> {
+interface AuthResponse {
+  accessToken: string;
+}
+
+export interface TraceResponse {
+  visitedSpotIds: string[];
+  completionRate: number;
+  completedAt: string | null;
+}
+
+const TOKEN_KEY = 'tripick_backend_access_token';
+const DEVICE_KEY = 'tripick_backend_device_id';
+
+function getBaseUrl(): string | null {
   const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
-  if (!baseUrl || baseUrl.trim() === '') {
-    return null;
-  }
+  if (!baseUrl || baseUrl.trim() === '') return null;
+  return baseUrl.replace(/\/$/, '');
+}
+
+async function getDeviceId(): Promise<string> {
+  const existing = await AsyncStorage.getItem(DEVICE_KEY);
+  if (existing) return existing;
+  const id = `rn-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  await AsyncStorage.setItem(DEVICE_KEY, id);
+  return id;
+}
+
+async function ensureToken(): Promise<string | null> {
+  const baseUrl = getBaseUrl();
+  if (!baseUrl) return null;
+
+  const existing = await AsyncStorage.getItem(TOKEN_KEY);
+  if (existing) return existing;
 
   try {
-    const response = await fetch(`${baseUrl}/tour/spots/jeonju`);
-    if (!response.ok) {
-      return null;
-    }
-
-    const json: JeonjuSpotsResponse = await response.json();
-    if (!Array.isArray(json?.spots)) {
-      return null;
-    }
-
-    return json.spots;
+    const response = await fetch(`${baseUrl}/auth/dev-login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deviceId: await getDeviceId() }),
+    });
+    if (!response.ok) return null;
+    const json = (await response.json()) as AuthResponse;
+    if (!json.accessToken) return null;
+    await AsyncStorage.setItem(TOKEN_KEY, json.accessToken);
+    return json.accessToken;
   } catch {
     return null;
   }
+}
+
+async function requestJson<T>(
+  path: string,
+  options: RequestInit & { auth?: boolean } = {},
+): Promise<T | null> {
+  const baseUrl = getBaseUrl();
+  if (!baseUrl) return null;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string> | undefined),
+  };
+
+  if (options.auth) {
+    const token = await ensureToken();
+    if (!token) return null;
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  try {
+    const response = await fetch(`${baseUrl}${path}`, { ...options, headers });
+    if (!response.ok) return null;
+    return (await response.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchJeonjuSpots(): Promise<BackendTourSpot[] | null> {
+  const json = await requestJson<JeonjuSpotsResponse>('/tour/spots/jeonju');
+  if (!Array.isArray(json?.spots)) return null;
+  return json.spots;
+}
+
+export async function fetchCourses(): Promise<Course[] | null> {
+  return requestJson<Course[]>('/courses');
+}
+
+export async function fetchMyCourses(): Promise<Course[] | null> {
+  return requestJson<Course[]>('/courses/my', { auth: true });
+}
+
+export async function fetchCourse(courseId: string): Promise<Course | null> {
+  return requestJson<Course>(`/courses/${encodeURIComponent(courseId)}`);
+}
+
+export async function createCourse(course: Course): Promise<Course | null> {
+  return requestJson<Course>('/courses', {
+    method: 'POST',
+    auth: true,
+    body: JSON.stringify(course),
+  });
+}
+
+export async function fetchReviews(courseId: string): Promise<Review[] | null> {
+  return requestJson<Review[]>(`/courses/${encodeURIComponent(courseId)}/reviews`);
+}
+
+export async function createReview(input: {
+  courseId: string;
+  rating: number;
+  comment: string;
+}): Promise<Review | null> {
+  return requestJson<Review>(`/courses/${encodeURIComponent(input.courseId)}/reviews`, {
+    method: 'POST',
+    auth: true,
+    body: JSON.stringify({ rating: input.rating, comment: input.comment }),
+  });
+}
+
+export async function fetchTraceProgress(courseId: string): Promise<TraceResponse | null> {
+  return requestJson<TraceResponse>(`/courses/${encodeURIComponent(courseId)}/trace`, { auth: true });
+}
+
+export async function checkInSpot(input: {
+  courseId: string;
+  spotId: string;
+  lat?: number;
+  lng?: number;
+  isManual?: boolean;
+}): Promise<TraceResponse | null> {
+  return requestJson<TraceResponse>(`/courses/${encodeURIComponent(input.courseId)}/checkins`, {
+    method: 'POST',
+    auth: true,
+    body: JSON.stringify({
+      spotId: input.spotId,
+      lat: input.lat,
+      lng: input.lng,
+      isManual: input.isManual,
+    }),
+  });
+}
+
+export async function completeTrace(courseId: string): Promise<TraceResponse | null> {
+  return requestJson<TraceResponse>(`/courses/${encodeURIComponent(courseId)}/trace/complete`, {
+    method: 'POST',
+    auth: true,
+  });
 }

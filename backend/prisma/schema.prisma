@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String         @id @default(cuid())
+  email        String         @unique
+  nickname     String
+  passwordHash String
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  courses      Course[]
+  reviews      Review[]
+  traces       TraceSession[]
+}
+
+model Course {
+  id                    String         @id @default(cuid())
+  title                 String
+  area                  String
+  theme                 String
+  distance              String
+  transport             String?
+  recommendationReasons String[]       @default([])
+  creatorId             String?
+  creator               User?          @relation(fields: [creatorId], references: [id], onDelete: SetNull)
+  spots                 CourseSpot[]
+  reviews               Review[]
+  traces                TraceSession[]
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  @@index([creatorId])
+  @@index([createdAt])
+}
+
+model CourseSpot {
+  id            String       @id @default(cuid())
+  courseId      String
+  course        Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  sourceSpotId  String?
+  name          String
+  category      String?
+  lat           Float?
+  lng           Float?
+  address       String?
+  imageUrl      String?
+  contentId     String?
+  order         Int
+  checkIns      CheckIn[]
+
+  @@index([courseId])
+}
+
+model Review {
+  id             String   @id @default(cuid())
+  courseId       String
+  course         Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating         Int
+  comment        String
+  completionRate Float    @default(0)
+  weight         Float    @default(1)
+  createdAt      DateTime @default(now())
+
+  @@index([courseId])
+  @@index([userId])
+}
+
+model TraceSession {
+  id             String    @id @default(cuid())
+  courseId       String
+  course         Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  completionRate Float     @default(0)
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  checkIns       CheckIn[]
+
+  @@unique([courseId, userId])
+  @@index([courseId])
+  @@index([userId])
+}
+
+model CheckIn {
+  id             String       @id @default(cuid())
+  traceSessionId String
+  traceSession   TraceSession @relation(fields: [traceSessionId], references: [id], onDelete: Cascade)
+  spotId         String
+  spot           CourseSpot   @relation(fields: [spotId], references: [id], onDelete: Cascade)
+  lat            Float?
+  lng            Float?
+  distanceMeters Float?
+  speedKmh       Float?
+  isManual       Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+
+  @@unique([traceSessionId, spotId])
+  @@index([spotId])
+}

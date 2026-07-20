@@ -13,6 +13,7 @@ import mockCourses from '../data/mockCourses';
 import type { Course } from '../types/course';
 import type { RootStackParamList } from '../navigation/types';
 import { getUserCourses } from '../utils/courseStorage';
+import { fetchCourses } from '../api/backendApi';
 
 type HomeNavProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -185,7 +186,9 @@ const ucStyles = StyleSheet.create({
 
 export function HomeScreen() {
   const navigation = useNavigation<HomeNavProp>();
-  const allCourses: Course[] = Array.isArray(mockCourses) ? mockCourses : [];
+  const [allCourses, setAllCourses] = useState<Course[]>(
+    () => (Array.isArray(mockCourses) ? mockCourses : []),
+  );
   const displayCourses = allCourses.slice(0, 5);
 
   const [userCourses, setUserCourses] = useState<Course[]>([]);
@@ -194,8 +197,10 @@ export function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       let active = true;
-      getUserCourses().then((courses) => {
-        if (active) setUserCourses(courses);
+      Promise.all([getUserCourses(), fetchCourses()]).then(([courses, serverCourses]) => {
+        if (!active) return;
+        setUserCourses(courses);
+        if (serverCourses && serverCourses.length > 0) setAllCourses(serverCourses);
       });
       return () => { active = false; };
     }, []),

@@ -76,3 +76,6 @@ EXPO_PUBLIC_API_BASE_URL=http://192.168.0.10:3000/api
 ```
 
 자세한 내용은 [`app/README.md`](app/README.md)를 참조하세요.
+## Backend DB Local Setup
+
+PostgreSQL, Prisma, JWT, Course/Review/Trace API local setup is documented in [`backend/README.local-setup.md`](backend/README.local-setup.md).
