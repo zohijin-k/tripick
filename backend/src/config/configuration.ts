@@ -14,7 +14,7 @@ export default (): AppConfig => ({
   port: parseInt(process.env.PORT ?? '3000', 10),
   tourApi: {
     key: process.env.TOUR_API_KEY,
-    baseUrl: process.env.TOUR_API_BASE_URL ?? 'https://apis.data.go.kr/B551011/KorService1',
+    baseUrl: process.env.TOUR_API_BASE_URL ?? 'https://apis.data.go.kr/B551011/KorService2',
   },
   jwt: {
     secret: process.env.JWT_SECRET ?? 'tripick-local-dev-secret',

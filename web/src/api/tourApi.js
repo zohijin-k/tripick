@@ -1,4 +1,4 @@
-// TourAPI v2 (KorService1) — 한국관광공사 관광정보 API
+// TourAPI v2 (KorService2) — 한국관광공사 관광정보 API
 // https://www.data.go.kr/data/15101578/openapi.do
 //
 // 주의: .env에는 반드시 "디코딩 키"를 사용할 것.
@@ -8,7 +8,7 @@
 // 프로덕션 빌드에서는 TourAPI가 지원하는 CORS 헤더로 직접 호출.
 const BASE = import.meta.env.DEV
   ? '/tourapi'
-  : 'https://apis.data.go.kr/B551011/KorService1';
+  : 'https://apis.data.go.kr/B551011/KorService2';
 
 // TourAPI cat1/cat2 → TRIPICK 카테고리
 function mapCategory(cat1, cat2) {
@@ -44,14 +44,14 @@ async function fetchAreaList(apiKey, contentTypeId) {
     MobileOS: 'ETC',
     MobileApp: 'TRIPICK',
     _type: 'json',
-    areaCode: '37',     // 전라북도
-    sigunguCode: '11',  // 전주시
+    areaCode: '37',     // 전북특별자치도
+    sigunguCode: '12',  // 전주시
     contentTypeId,
   });
 
   // serviceKey는 URLSearchParams 외부에서 encodeURIComponent로 처리
   // (디코딩 키를 1회만 인코딩)
-  const url = `${BASE}/areaBasedList1?serviceKey=${encodeURIComponent(apiKey)}&${params}`;
+  const url = `${BASE}/areaBasedList2?serviceKey=${encodeURIComponent(apiKey)}&${params}`;
   const res = await fetch(url);
 
   if (!res.ok) {

@@ -21,7 +21,7 @@ services:
       - key: TOUR_API_KEY
         sync: false
       - key: TOUR_API_BASE_URL
-        value: https://apis.data.go.kr/B551011/KorService1
+        value: https://apis.data.go.kr/B551011/KorService2
       - key: CORS_ORIGINS
         value: ''
 

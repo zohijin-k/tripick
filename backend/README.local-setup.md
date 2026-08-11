@@ -16,7 +16,7 @@ PORT=3000
 DATABASE_URL=postgresql://tripick:tripick@localhost:5432/tripick?schema=public
 JWT_SECRET=replace_with_long_random_secret
 TOUR_API_KEY=your_decoding_tour_api_key
-TOUR_API_BASE_URL=https://apis.data.go.kr/B551011/KorService1
+TOUR_API_BASE_URL=https://apis.data.go.kr/B551011/KorService2
 CORS_ORIGINS=
 ```
 

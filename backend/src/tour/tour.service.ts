@@ -96,7 +96,7 @@ export class TourService {
     let response;
     try {
       response = await firstValueFrom(
-        this.httpService.get<TourApiResponse<TourApiRawItem>>(`${baseUrl}/areaBasedList1`, { params }),
+        this.httpService.get<TourApiResponse<TourApiRawItem>>(`${baseUrl}/areaBasedList2`, { params }),
       );
     } catch {
       // 원본 axios 에러는 요청 URL(서비스키 포함)을 담고 있을 수 있으므로 그대로 노출하지 않는다.

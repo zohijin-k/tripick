@@ -6,11 +6,11 @@ export default defineConfig({
   server: {
     proxy: {
       // 개발 서버 전용 CORS 우회 프록시
-      // import.meta.env.DEV === true 일 때 '/tourapi/...' → 'https://apis.data.go.kr/B551011/KorService1/...'
+      // import.meta.env.DEV === true 일 때 '/tourapi/...' → 'https://apis.data.go.kr/B551011/KorService2/...'
       '/tourapi': {
         target: 'https://apis.data.go.kr',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/tourapi/, '/B551011/KorService1'),
+        rewrite: (path) => path.replace(/^\/tourapi/, '/B551011/KorService2'),
       },
     },
   },

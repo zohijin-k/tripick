@@ -35,7 +35,7 @@ npm run start:prod    # 빌드 결과 실행
 |---|---|
 | `PORT` | 서버 포트 (기본값 3000) |
 | `TOUR_API_KEY` | 한국관광공사 TourAPI v2 서비스 키. **일반 인증키 (Decoding)** 사용 필수 — axios가 요청 시 자동으로 1회 인코딩하므로, 이미 인코딩된 키를 넣으면 이중 인코딩으로 인증이 실패합니다. |
-| `TOUR_API_BASE_URL` | TourAPI 베이스 URL (기본값 `https://apis.data.go.kr/B551011/KorService1`) |
+| `TOUR_API_BASE_URL` | TourAPI 베이스 URL (기본값 `https://apis.data.go.kr/B551011/KorService2`) |
 | `CORS_ORIGINS` | 콤마로 구분된 허용 Origin 목록 (선택). 비워두면 개발 환경에서는 전체 허용됩니다. |
 
 ⚠️ `backend/.env`는 루트 `.gitignore`에 포함되어 있어 절대 커밋되지 않습니다. TourAPI 키는 **이 서버에서만** 관리하며, 앱/웹 코드에는 절대 포함하지 않습니다.
@@ -75,7 +75,7 @@ backend/
 
 ### `GET /api/tour/spots/jeonju`
 
-전주(전라북도 37 / 전주시 11) 관광지(`12`)·문화시설(`14`) 데이터를 TourAPI `areaBasedList1`에서 병렬 조회해 정규화한 뒤 반환합니다.
+전주(전북특별자치도 37 / 전주시 12) 관광지(`12`)·문화시설(`14`) 데이터를 TourAPI `areaBasedList2`에서 병렬 조회해 정규화한 뒤 반환합니다.
 
 Query:
 
