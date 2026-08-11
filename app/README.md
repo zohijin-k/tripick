@@ -23,6 +23,12 @@ EXPO_PUBLIC_API_BASE_URL=http://localhost:3000/api
 EXPO_PUBLIC_API_BASE_URL=http://192.168.0.10:3000/api
 ```
 
+For beta testing outside the local backend network, use the deployed API and restart Metro:
+
+```env
+EXPO_PUBLIC_API_BASE_URL=https://tripick-api.onrender.com/api
+```
+
 ## 구현 화면과 기능
 
 - Home: 검증 코스 랭킹, 내 코스, 현재 위치 기반 주변 코스 제안

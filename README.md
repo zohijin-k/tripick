@@ -81,3 +81,17 @@ EXPO_PUBLIC_API_BASE_URL=http://192.168.0.10:3000/api
 ## Backend DB Local Setup
 
 PostgreSQL, Prisma, JWT, Course/Review/Trace API local setup is documented in [`backend/README.local-setup.md`](backend/README.local-setup.md).
+
+## Public Beta Backend
+
+- API: `https://tripick-api.onrender.com/api`
+- Health check: `https://tripick-api.onrender.com/api/health`
+- Swagger: `https://tripick-api.onrender.com/api-docs`
+
+For Expo Go beta testing, set the following value in `app/.env` and restart Metro:
+
+```env
+EXPO_PUBLIC_API_BASE_URL=https://tripick-api.onrender.com/api
+```
+
+The Render free instance can sleep after inactivity, so the first request may take about a minute.
