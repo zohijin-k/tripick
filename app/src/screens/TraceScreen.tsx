@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   Alert,
   ActivityIndicator,
@@ -282,16 +282,12 @@ interface GpsCardProps {
   distanceM: number | null;
   canCheckIn: boolean;
   hasSpotCoords: boolean;
-  isLoading: boolean;
   accent: string;
-  onRequestPermission: () => void;
-  onGetLocation: () => void;
 }
 
 function GpsCard({
   permission, userLocation, distanceM, canCheckIn,
-  hasSpotCoords, isLoading, accent,
-  onRequestPermission, onGetLocation,
+  hasSpotCoords, accent,
 }: GpsCardProps) {
   return (
     <View style={gpsStyles.card}>
@@ -316,17 +312,7 @@ function GpsCard({
       </View>
 
       {permission === 'undetermined' && (
-        <>
-          <Text style={gpsStyles.desc}>
-            위치 권한을 허용하면 목적지 도착 여부를 확인하고 체크인할 수 있습니다.
-          </Text>
-          <TouchableOpacity
-            style={[gpsStyles.btn, { backgroundColor: accent }]}
-            onPress={onRequestPermission}
-          >
-            <Text style={gpsStyles.btnText}>위치 권한 허용하기</Text>
-          </TouchableOpacity>
-        </>
+        <Text style={gpsStyles.desc}>위치 권한을 확인하고 있습니다.</Text>
       )}
 
       {permission === 'denied' && (
@@ -347,30 +333,20 @@ function GpsCard({
               </Text>
             </View>
           ) : (
-            <Text style={gpsStyles.noLocHint}>아래 버튼으로 현재 위치를 가져오세요.</Text>
+            <Text style={gpsStyles.noLocHint}>현재 위치를 자동으로 찾고 있습니다.</Text>
           )}
-
-          <TouchableOpacity
-            style={[gpsStyles.btn, { backgroundColor: '#13315c' }, isLoading && gpsStyles.btnDisabled]}
-            onPress={onGetLocation}
-            disabled={isLoading}
-          >
-            {isLoading
-              ? <ActivityIndicator color="#fff" size="small" />
-              : <Text style={gpsStyles.btnText}>{userLocation ? '위치 갱신' : '현재 위치 가져오기'}</Text>}
-          </TouchableOpacity>
 
           {userLocation && (
             <View style={[gpsStyles.distBox, canCheckIn ? gpsStyles.distBoxOk : gpsStyles.distBoxFar]}>
               {!hasSpotCoords ? (
-                <Text style={gpsStyles.distNote}>이 장소는 GPS 좌표가 없어 수동 체크인만 가능합니다.</Text>
+                <Text style={gpsStyles.distNote}>이 장소는 좌표 정보가 없어 자동 체크인할 수 없습니다.</Text>
               ) : distanceM !== null ? (
                 <>
                   <Text style={[gpsStyles.distValue, canCheckIn ? gpsStyles.distValueOk : gpsStyles.distValueFar]}>
                     목적지까지 {formatDistanceM(distanceM)}
                   </Text>
                   <Text style={[gpsStyles.distStatus, canCheckIn ? gpsStyles.distStatusOk : gpsStyles.distStatusFar]}>
-                    {canCheckIn ? `✓ GPS 체크인 가능` : `${GPS_RADIUS_M}m 이내에서 체크인 가능`}
+                    {canCheckIn ? '도착 감지 중 · 잠시 후 자동 체크인' : `${GPS_RADIUS_M}m 이내 진입 시 자동 체크인`}
                   </Text>
                 </>
               ) : null}
@@ -457,7 +433,8 @@ export function TraceScreen() {
   // ── GPS state ──────────────────────────────────────────────────────────────
   const [locationPermission, setLocationPermission] = useState<LocationPermission>('undetermined');
   const [userLocation, setUserLocation] = useState<LatLng | null>(null);
-  const [locationLoading, setLocationLoading] = useState(false);
+  const [checkInNotice, setCheckInNotice] = useState<string | null>(null);
+  const checkingSpotIdRef = useRef<string | null>(null);
 
   // ── Review state ───────────────────────────────────────────────────────────
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -535,71 +512,53 @@ export function TraceScreen() {
     return () => { active = false; };
   }, [isInitialized, isCompleted, courseId]);
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
-
-  const handleRequestPermission = useCallback(async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    const granted = status === 'granted';
-    setLocationPermission(granted ? 'granted' : 'denied');
-    if (!granted) {
-      Alert.alert('위치 권한 필요', '설정 앱에서 TRIPICK의 위치 접근을 허용해 주세요.');
-    }
-  }, []);
-
-  const handleGetLocation = useCallback(async () => {
-    if (locationPermission !== 'granted') {
-      Alert.alert('위치 권한 없음', '먼저 위치 권한을 허용해 주세요.');
-      return;
-    }
-    setLocationLoading(true);
-    try {
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      setUserLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude });
-    } catch {
-      Alert.alert('위치 오류', '현재 위치를 가져올 수 없습니다. 다시 시도해 주세요.');
-    } finally {
-      setLocationLoading(false);
-    }
-  }, [locationPermission]);
-
-  const markCurrentSpotVisited = useCallback(async (isManual: boolean) => {
-    if (!currentSpot) return;
+  const markCurrentSpotVisited = useCallback(async () => {
+    if (!currentSpot || !userLocation || checkingSpotIdRef.current === currentSpot.id) return;
+    checkingSpotIdRef.current = currentSpot.id;
     const serverVisitedIds = await saveSpotCheckIn({
       courseId,
       spotId: currentSpot.id,
       userLocation,
-      isManual,
+      isManual: false,
     });
     if (serverVisitedIds) {
       setVisitedSpotIds(serverVisitedIds);
-      return;
+    } else {
+      setVisitedSpotIds((prev) => (prev.includes(currentSpot.id) ? prev : [...prev, currentSpot.id]));
     }
-    setVisitedSpotIds((prev) => (prev.includes(currentSpot.id) ? prev : [...prev, currentSpot.id]));
+    setCheckInNotice(`${currentSpot.name} 도착 · 자동 체크인 완료`);
+    setTimeout(() => setCheckInNotice(null), 3500);
   }, [courseId, currentSpot, userLocation]);
 
-  const handleGpsCheckIn = useCallback(() => {
-    if (!currentSpot) return;
-    if (!hasSpotCoords) {
-      Alert.alert('GPS 정보 없음', '이 장소는 GPS 좌표가 없어 수동 체크인만 가능합니다.');
-      return;
-    }
-    if (!userLocation) {
-      Alert.alert('위치 없음', '먼저 현재 위치를 가져와 주세요.');
-      return;
-    }
-    if (!canGpsCheckIn) {
-      Alert.alert(
-        '목적지 근처에서 체크인 가능',
-        `현재 목적지까지 ${distanceToCurrentSpot !== null ? formatDistanceM(distanceToCurrentSpot) : '?'} 떨어져 있습니다.\n${GPS_RADIUS_M}m 이내에서 체크인하세요.`,
-      );
-      return;
-    }
-    markCurrentSpotVisited(false);
-  }, [currentSpot, hasSpotCoords, userLocation, canGpsCheckIn, distanceToCurrentSpot, markCurrentSpotVisited]);
+  useEffect(() => {
+    checkingSpotIdRef.current = null;
+  }, [currentSpot?.id]);
 
-  const handleManualCheckIn = useCallback(() => {
-    markCurrentSpotVisited(true);
-  }, [markCurrentSpotVisited]);
+  useEffect(() => {
+    let subscription: Location.LocationSubscription | null = null;
+    let active = true;
+    (async () => {
+      const currentPermission = await Location.getForegroundPermissionsAsync();
+      const permission = currentPermission.status === 'granted'
+        ? currentPermission
+        : await Location.requestForegroundPermissionsAsync();
+      if (!active) return;
+      if (permission.status !== 'granted') {
+        setLocationPermission('denied');
+        return;
+      }
+      setLocationPermission('granted');
+      subscription = await Location.watchPositionAsync(
+        { accuracy: Location.Accuracy.High, distanceInterval: 3, timeInterval: 2000 },
+        (location) => setUserLocation({ lat: location.coords.latitude, lng: location.coords.longitude }),
+      );
+    })().catch(() => setLocationPermission('denied'));
+    return () => { active = false; subscription?.remove(); };
+  }, []);
+
+  useEffect(() => {
+    if (canGpsCheckIn) void markCurrentSpotVisited();
+  }, [canGpsCheckIn, markCurrentSpotVisited]);
 
   const handleReviewSubmit = useCallback(async (rating: number, comment: string) => {
     await saveReview({ courseId, rating, comment });
@@ -718,11 +677,15 @@ export function TraceScreen() {
           distanceM={distanceToCurrentSpot}
           canCheckIn={canGpsCheckIn}
           hasSpotCoords={hasSpotCoords}
-          isLoading={locationLoading}
           accent={accent}
-          onRequestPermission={handleRequestPermission}
-          onGetLocation={handleGetLocation}
         />
+
+        {checkInNotice && (
+          <View style={styles.checkInNotice}>
+            <Text style={styles.checkInNoticeIcon}>✓</Text>
+            <Text style={styles.checkInNoticeText}>{checkInNotice}</Text>
+          </View>
+        )}
 
         {isCompleted && <CompletionCard title={course.title} total={totalCount} />}
 
@@ -742,27 +705,13 @@ export function TraceScreen() {
           </TouchableOpacity>
         </View>
       ) : (
-        <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={[styles.gpsBtn, { backgroundColor: canGpsCheckIn ? accent : '#94a3b8' }]}
-            onPress={handleGpsCheckIn}
-            disabled={!currentSpot}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.gpsBtnLabel}>GPS 체크인</Text>
-            <Text style={styles.gpsBtnSpot} numberOfLines={1}>
-              {currentSpot ? `📍 ${currentSpot.name}` : '모든 지점 완료'}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.manualBtn}
-            onPress={handleManualCheckIn}
-            disabled={!currentSpot}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.manualBtnText}>수동 체크인 (개발·시연용)</Text>
-          </TouchableOpacity>
+        <View style={styles.autoBar}>
+          <View style={[styles.liveDot, { backgroundColor: locationPermission === 'granted' ? '#22c55e' : '#f59e0b' }]} />
+          <View style={styles.autoBarText}>
+            <Text style={styles.autoBarTitle}>GPS 자동 체크인 {locationPermission === 'granted' ? '활성화' : '대기 중'}</Text>
+            <Text style={styles.autoBarSpot} numberOfLines={1}>{currentSpot?.name ?? '다음 목적지 확인 중'}</Text>
+          </View>
+          {distanceToCurrentSpot != null && <Text style={styles.autoBarDistance}>{formatDistanceM(distanceToCurrentSpot)}</Text>}
         </View>
       )}
 
@@ -828,6 +777,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0',
   },
   manualBtnText: { fontSize: 13, color: '#64748b', fontWeight: '600' },
+  autoBar: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#fff', paddingHorizontal: 18, paddingVertical: 14, borderTopWidth: 1, borderTopColor: '#dce6ec' },
+  liveDot: { width: 10, height: 10, borderRadius: 5 },
+  autoBarText: { flex: 1 },
+  autoBarTitle: { color: '#13315c', fontSize: 13, fontWeight: '800' },
+  autoBarSpot: { color: '#64748b', fontSize: 11, marginTop: 2 },
+  autoBarDistance: { color: '#0f8b6d', fontSize: 13, fontWeight: '800' },
+  checkInNotice: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#dcfce7', borderWidth: 1, borderColor: '#86efac', borderRadius: 8, padding: 14, marginBottom: 12 },
+  checkInNoticeIcon: { color: '#047857', fontSize: 18, fontWeight: '900' },
+  checkInNoticeText: { flex: 1, color: '#065f46', fontSize: 13, fontWeight: '800' },
   doneBtn: { borderRadius: 14, paddingVertical: 16, alignItems: 'center', backgroundColor: '#059669' },
   doneBtnText: { color: '#fff', fontSize: 17, fontWeight: '800' },
 

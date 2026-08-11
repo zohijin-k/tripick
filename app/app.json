@@ -10,7 +10,7 @@
       "supportsTablets": false,
       "bundleIdentifier": "com.tripick.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "현재 위치를 사용하여 관광지 체크인 기능을 제공합니다."
+        "NSLocationWhenInUseUsageDescription": "현재 위치를 사용하여 목적지 도착 시 자동 체크인과 주변 코스 추천을 제공합니다."
       }
     },
     "android": {
@@ -21,9 +21,10 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "현재 위치를 사용하여 관광지 체크인 기능을 제공합니다."
+          "locationWhenInUsePermission": "현재 위치를 사용하여 목적지 도착 시 자동 체크인과 주변 코스 추천을 제공합니다."
         }
-      ]
+      ],
+      "expo-notifications"
     ]
   }
 }

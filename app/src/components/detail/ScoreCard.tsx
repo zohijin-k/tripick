@@ -4,6 +4,7 @@ import type { TripickScoreResult } from '../../types/course';
 
 interface Props {
   result: TripickScoreResult;
+  hasBehaviorData?: boolean;
 }
 
 function ScoreBar({ value, max = 100, color }: { value: number; max?: number; color: string }) {
@@ -28,18 +29,22 @@ const barStyles = StyleSheet.create({
   },
 });
 
-export function ScoreCard({ result }: Props) {
+export function ScoreCard({ result, hasBehaviorData = true }: Props) {
   const { totalScore, performerScore, ratingScore } = result;
 
   return (
     <View style={styles.card}>
       <View style={styles.header}>
         <Text style={styles.label}>TRIPICK Score</Text>
-        <Text style={styles.score}>{totalScore}</Text>
+        <Text style={styles.score}>{hasBehaviorData ? totalScore : '-'}</Text>
       </View>
-      <Text style={styles.formula}>완주율 × 50% + 만족도 × 30% + 수행자 수 × 20%</Text>
+      <Text style={styles.formula}>
+        {hasBehaviorData
+          ? '완주율 × 50% + 만족도 × 30% + 수행자 수 × 20%'
+          : '첫 수행 데이터가 쌓이면 점수가 계산됩니다.'}
+      </Text>
 
-      <View style={styles.items}>
+      {hasBehaviorData && <View style={styles.items}>
         <View style={styles.item}>
           <View style={styles.itemHeader}>
             <Text style={styles.itemLabel}>수행자 점수</Text>
@@ -54,7 +59,7 @@ export function ScoreCard({ result }: Props) {
           </View>
           <ScoreBar value={ratingScore} color="#059669" />
         </View>
-      </View>
+      </View>}
     </View>
   );
 }

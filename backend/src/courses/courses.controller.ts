@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { AuthUser, CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { CheckInDto, CreateCourseDto, CreateReviewDto } from './dto/course.dto';
+import { CheckInDto, CreateCourseDto, CreateReviewDto, NearbyCourseQueryDto } from './dto/course.dto';
 import { CoursesService } from './courses.service';
 
 @Controller('courses')
@@ -16,6 +16,12 @@ export class CoursesController {
   @Get('ranking')
   ranking() {
     return this.coursesService.findAll();
+  }
+
+  @Get('nearby')
+  @UseGuards(JwtAuthGuard)
+  nearby(@CurrentUser() user: AuthUser, @Query() query: NearbyCourseQueryDto) {
+    return this.coursesService.findNearby(user.id, query.lat, query.lng, query.radius ?? 1200);
   }
 
   @Get('my')

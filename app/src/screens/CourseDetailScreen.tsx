@@ -269,7 +269,7 @@ export function CourseDetailScreen() {
         <DetailHeader course={course} onBack={() => navigation.goBack()} />
 
         <View style={styles.body}>
-          <ScoreCard result={tripickScore} />
+          <ScoreCard result={tripickScore} hasBehaviorData={course.performers > 0} />
           <TrustCard result={trustScore} />
 
           {course.recommendationReasons && course.recommendationReasons.length > 0 && (

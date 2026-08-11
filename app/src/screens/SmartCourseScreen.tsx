@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,6 +16,7 @@ import type { Course, Spot } from '../types/course';
 import { generateRecommendationReasons } from '../utils/recommendation';
 import { saveUserCourse } from '../utils/courseStorage';
 import { useTourSpots } from '../hooks/useTourSpots';
+import { getTravelProfile } from '../utils/profileStorage';
 
 // ─── Navigation type ──────────────────────────────────────────────────────────
 
@@ -286,6 +287,14 @@ export function SmartCourseScreen() {
   const [isSaving, setIsSaving] = useState(false);
 
   const { spots: tourSpots, loading: spotsLoading, source: spotsSource } = useTourSpots();
+
+  useEffect(() => {
+    getTravelProfile().then((profile) => {
+      if (STYLES.includes(profile.travelStyle as StyleOption)) setSelectedStyle(profile.travelStyle as StyleOption);
+      if (DURATIONS.includes(profile.duration as DurationOption)) setSelectedDuration(profile.duration as DurationOption);
+      if (TRANSPORTS.includes(profile.transport as TransportOption)) setSelectedTransport(profile.transport as TransportOption);
+    });
+  }, []);
 
   const allSelected = selectedStyle && selectedDuration && selectedTransport;
   const accent = selectedStyle ? (ACCENT_FOR_STYLE[selectedStyle] ?? '#0f8b6d') : '#0f8b6d';

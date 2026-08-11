@@ -79,12 +79,22 @@ EXPO_PUBLIC_API_BASE_URL=http://192.168.0.10:3000/api
 | POST | `/api/auth/login` | Login and JWT issue |
 | POST | `/api/auth/dev-login` | Local app development auto-login |
 | GET | `/api/auth/me` | Current user |
+| PATCH | `/api/auth/me` | Save nickname and travel preferences |
 | GET | `/api/courses` | Course list/ranking |
+| GET | `/api/courses/nearby?lat=...&lng=...` | Nearby courses ordered by distance and profile preference |
 | GET | `/api/courses/my` | My created courses |
 | GET | `/api/courses/:id` | Course detail |
 | POST | `/api/courses` | Create/save course |
 | GET | `/api/courses/:id/reviews` | Review list |
-| POST | `/api/courses/:id/reviews` | Create review; completion under 70% uses 1/3 rating weight |
+| POST | `/api/courses/:id/reviews` | Create one review per user; GPS completion determines verification weight |
 | GET | `/api/courses/:id/trace` | My Trace progress |
-| POST | `/api/courses/:id/checkins` | GPS/manual check-in |
+| POST | `/api/courses/:id/checkins` | GPS check-in; rejects manual requests and locations over 50m away |
 | POST | `/api/courses/:id/trace/complete` | Complete course trace |
+
+## Trust Score Data Semantics
+
+- Completion rate is completed trace sessions divided by started trace sessions.
+- Performer count is the number of users who started a trace, not only users who completed it.
+- Review trust uses GPS-completed review ratio, sample volume, and rating consistency.
+- GPS verification uses server-validated automatic check-ins within 50m.
+- Data quality is the fill ratio for coordinates, address, image, TourAPI content ID, and category.

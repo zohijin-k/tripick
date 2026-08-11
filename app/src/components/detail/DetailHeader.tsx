@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { Course } from '../../types/course';
+import { formatAverageRating, formatCompletionRate } from '../../utils/courseMetrics';
 
 const THEME_ACCENT: Record<string, string> = {
   야경: '#0f766e',
@@ -47,12 +48,12 @@ export function DetailHeader({ course, onBack }: Props) {
         </View>
         <View style={styles.statDivider} />
         <View style={styles.stat}>
-          <Text style={styles.statValue}>★ {course.averageRating}</Text>
+          <Text style={styles.statValue}>★ {formatAverageRating(course)}</Text>
           <Text style={styles.statLabel}>평균 평점</Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.stat}>
-          <Text style={styles.statValue}>{course.completionRate}%</Text>
+          <Text style={styles.statValue}>{formatCompletionRate(course)}</Text>
           <Text style={styles.statLabel}>완주율</Text>
         </View>
       </View>

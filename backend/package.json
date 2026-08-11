@@ -10,6 +10,8 @@
     "start:prod": "node dist/main",
     "prisma:generate": "prisma generate",
     "db:push": "prisma db push",
+    "db:seed": "node prisma/seed.js",
+    "deploy:start": "prisma db push && node prisma/seed.js && node dist/main",
     "lint": "eslint \"{src,test}/**/*.ts\"",
     "test": "jest"
   },
@@ -40,5 +42,8 @@
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

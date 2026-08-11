@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { Course } from '../types/course';
 import { calculateTripickScore } from '../utils/score';
 import { calculateTrustScore } from '../utils/trustScore';
+import { formatAverageRating, formatCompletionRate, isVerifiedCourse } from '../utils/courseMetrics';
 
 const THEME_ACCENT: Record<string, string> = {
   야경: '#0f766e',
@@ -24,13 +25,14 @@ export function CourseCard({ course, rank }: Props) {
   const { totalScore } = calculateTripickScore(course);
   const { score: trustScore } = calculateTrustScore(course);
   const accent = THEME_ACCENT[course.theme] ?? '#0f8b6d';
+  const verified = isVerifiedCourse(course);
 
   return (
     <View style={styles.card}>
       {/* Colored header band */}
       <View style={[styles.header, { backgroundColor: accent }]}>
         <View style={styles.rankBadge}>
-          <Text style={styles.rankText}>TOP {rank}</Text>
+          <Text style={styles.rankText}>{verified ? `TOP ${rank}` : '신규'}</Text>
         </View>
         <View style={styles.themeBadge}>
           <Text style={styles.themeText}>{course.theme}</Text>
@@ -54,7 +56,7 @@ export function CourseCard({ course, rank }: Props) {
           </View>
           <View style={styles.scoreBlock}>
             <Text style={styles.scoreLabel}>TRIPICK</Text>
-            <Text style={styles.scoreValue}>{totalScore}</Text>
+            <Text style={styles.scoreValue}>{course.performers > 0 ? totalScore : '-'}</Text>
             <View style={[styles.trustBadge, { borderColor: accent }]}>
               <Text style={[styles.trustText, { color: accent }]}>
                 신뢰도 {trustScore}
@@ -69,12 +71,12 @@ export function CourseCard({ course, rank }: Props) {
         {/* Metric grid */}
         <View style={styles.metrics}>
           <View style={styles.metric}>
-            <Text style={styles.metricValue}>{course.completionRate}%</Text>
+            <Text style={styles.metricValue}>{formatCompletionRate(course)}</Text>
             <Text style={styles.metricLabel}>완주율</Text>
           </View>
           <View style={styles.metricSep} />
           <View style={styles.metric}>
-            <Text style={styles.metricValue}>{course.averageRating}</Text>
+            <Text style={styles.metricValue}>{formatAverageRating(course)}</Text>
             <Text style={styles.metricLabel}>만족도</Text>
           </View>
           <View style={styles.metricSep} />

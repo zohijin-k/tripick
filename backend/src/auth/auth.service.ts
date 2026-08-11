@@ -2,7 +2,7 @@ import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/co
 import { JwtService } from '@nestjs/jwt';
 import { createHash, pbkdf2Sync, randomBytes, timingSafeEqual } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
-import { DevLoginDto, LoginDto, RegisterDto } from './dto/auth.dto';
+import { DevLoginDto, LoginDto, RegisterDto, UpdateProfileDto } from './dto/auth.dto';
 
 @Injectable()
 export class AuthService {
@@ -52,10 +52,34 @@ export class AuthService {
   async me(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, nickname: true, createdAt: true },
+      select: {
+        id: true,
+        email: true,
+        nickname: true,
+        travelStyle: true,
+        duration: true,
+        transport: true,
+        createdAt: true,
+      },
     });
     if (!user) throw new UnauthorizedException('사용자를 찾을 수 없습니다.');
     return user;
+  }
+
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: dto,
+      select: {
+        id: true,
+        email: true,
+        nickname: true,
+        travelStyle: true,
+        duration: true,
+        transport: true,
+        createdAt: true,
+      },
+    });
   }
 
   private issueToken(id: string, email: string, nickname: string) {

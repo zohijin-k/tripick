@@ -1,137 +1,65 @@
 # TRIPICK App
 
-React Native + Expo + TypeScript 기반 모바일 앱
+Expo + React Native + TypeScript 기반 참여형 관광 코스 앱입니다.
 
-## 실행 방법
+## 실행
 
 ```bash
 cd app
 npm install
+cp .env.example .env
 npx expo start
 ```
 
-- `i` → iOS 시뮬레이터
-- `a` → Android 에뮬레이터
-- QR 코드 스캔 → Expo Go 앱으로 실기기 실행
+`app/.env`:
 
-TypeScript 타입 검사만 실행:
+```env
+EXPO_PUBLIC_API_BASE_URL=http://localhost:3000/api
+```
+
+실기기에서는 `localhost` 대신 백엔드를 실행하는 PC의 LAN IP를 사용합니다.
+
+```env
+EXPO_PUBLIC_API_BASE_URL=http://192.168.0.10:3000/api
+```
+
+## 구현 화면과 기능
+
+- Home: 검증 코스 랭킹, 내 코스, 현재 위치 기반 주변 코스 제안
+- Profile: 여행 스타일, 선호 시간, 이동 방식 저장
+- Smart Course: 프로필 취향을 기본값으로 사용해 코스 생성
+- Course Detail: 실제 지도, 장소 목록, TRIPICK/Trust Score, 리뷰
+- Nearby Courses: 위치 진입 시 추천된 코스를 좌우 스와이프로 비교
+- Trace: GPS 연속 추적, 목적지 50m 진입 시 자동 체크인, 진행 상태 복구
+- Review: 전 지점 자동 체크인 완료 후 리뷰 작성
+
+서버 연결 실패 시 관광지·코스·리뷰·진행 상태는 기존 mock/AsyncStorage fallback을 사용합니다.
+
+## 위치와 알림
+
+- `expo-location`: Trace 화면에서 위치를 계속 관찰하고 50m 이내 진입을 감지합니다.
+- `expo-notifications`: 관광지 주변에서 추천 코스가 발견되면 로컬 알림을 표시합니다.
+- `react-native-maps`: iOS/Android에서 도로, 건물, POI, 경로, 목적지 마커를 표시합니다.
+- 웹에서는 네이티브 지도 대신 기존 Map Preview fallback을 사용합니다.
+
+수동 체크인은 제거했습니다. 좌표가 없는 장소는 자동 체크인할 수 있으므로 TourAPI 데이터 적재 시 좌표를 필수로 확인해야 합니다.
+
+## Trust Score 기준
+
+| 지표 | 배점 | 기준 |
+|---|---:|---|
+| 완주 검증 | 35 | GPS 전체 완주 세션 / 코스 시작 세션 |
+| 리뷰 신뢰도 | 25 | GPS 완주 리뷰 비율, 리뷰 표본 수, 별점 일관성 |
+| 수행자 수 | 20 | 코스 수행을 시작한 고유 사용자 수 |
+| GPS 검증 | 10 | 50m 이내 자동 체크인 / 전체 체크인 |
+| 데이터 품질 | 10 | 좌표, 주소, 이미지, TourAPI ID, 카테고리 충실도 |
+
+`GPS 검증`은 관광지가 현재 영업 중인지를 뜻하지 않습니다. 해당 판단은 운영 상태 API나 관리자 검수가 별도로 필요합니다.
+
+## 검증
+
 ```bash
 npm run ts-check
 ```
 
-## 환경 변수 설정 (Backend API)
-
-앱은 TourAPI를 **직접 호출하지 않습니다**. TourAPI 호출은 `backend/`(NestJS)에서만 수행하고, 앱은 backend API만 호출합니다.
-
-```bash
-cd app
-cp .env.example .env   # EXPO_PUBLIC_API_BASE_URL 입력 후 저장
-```
-
-- `EXPO_PUBLIC_API_BASE_URL` — NestJS backend의 base URL (예: `http://localhost:3000/api`).
-- Expo는 `EXPO_PUBLIC_` 접두사가 붙은 변수만 앱 번들에 인라인되어 `process.env.EXPO_PUBLIC_API_BASE_URL`로 읽을 수 있습니다. 웹(Vite)의 `import.meta.env`는 RN에서 사용할 수 없습니다.
-- `app/.env`는 `.gitignore`에 포함되어 있어 **절대 커밋되지 않습니다**.
-- 값이 없거나 backend 호출이 실패하면 자동으로 `src/data/jeonjuSpots.ts`의 mock 전주 관광지 데이터로 fallback하므로, backend 없이도 앱 전체 기능(Smart Course 포함)이 정상 동작합니다.
-
-### ⚠️ 실기기 연결 주의사항
-
-React Native 실기기(Expo Go 등)에서는 `localhost`가 **기기 자신**을 가리키므로, Mac에서 실행 중인 backend에 접근할 수 없습니다. Mac의 로컬 IP를 사용하세요.
-
-```bash
-# Mac 로컬 IP 확인
-ipconfig getifaddr en0
-
-# app/.env
-EXPO_PUBLIC_API_BASE_URL=http://192.168.0.10:3000/api
-```
-
-시뮬레이터(iOS)/에뮬레이터(Android)에서는 `localhost`로도 접근 가능합니다.
-
-### Fallback 구조
-
-```
-useTourSpots() 훅
-  └─ fetchJeonjuSpots() (src/api/backendApi.ts)
-       ├─ EXPO_PUBLIC_API_BASE_URL 없음     → null 반환
-       ├─ backend 응답 실패/네트워크 오류    → null 반환 (try/catch)
-       ├─ 응답 형식이 예상과 다름            → null 반환
-       └─ 정상 응답                          → BackendTourSpot[] 반환
-  └─ null 또는 빈 배열이면 jeonjuSpots.ts mock 데이터로 자동 전환
-  └─ { spots, loading, error, source: 'backend' | 'mock' } 반환
-```
-
-`SmartCourseScreen`은 이 훅으로 관광지 후보를 받아 스마트 코스를 생성하며, 화면 상단에 현재 데이터 소스(`TourAPI` / `Mock Data`) 배지를 표시합니다. TourAPI 키는 앱 코드 어디에도 존재하지 않으며 `backend/.env`의 `TOUR_API_KEY`로만 관리됩니다.
-
-## 현재 구현 화면
-
-### HomeScreen
-- TRIPICK 브랜드 헤로 섹션 (검증 코스 수, 총 수행자, 평균 만족도)
-- TRIPICK Score 산정식 설명 카드
-- 검증된 코스 TOP 5 랭킹 (`mockCourses.ts` 기준)
-- 각 코스 카드에 TRIPICK Score, Trust Score, 완주율, 만족도, 수행자 수, 지점 수 표시
-
-## 폴더 구조
-
-```
-app/
-├── src/
-│   ├── screens/
-│   │   └── HomeScreen.tsx    # 홈 화면 (코스 랭킹)
-│   ├── components/
-│   │   └── CourseCard.tsx    # 코스 카드 컴포넌트
-│   ├── data/
-│   │   └── mockCourses.ts    # 전주 코스 mock 데이터 (6개)
-│   ├── utils/
-│   │   ├── score.ts          # TRIPICK Score 계산 (web 이식)
-│   │   └── trustScore.ts     # Trust Score 계산 (web 이식)
-│   └── types/
-│       └── course.ts         # Course, Spot, Review 타입 정의
-├── App.tsx                   # 루트 컴포넌트
-├── app.json                  # Expo 설정
-├── babel.config.js
-├── tsconfig.json
-└── package.json
-```
-
-## 기술 스택
-
-| 항목 | 선택 | 버전 |
-|---|---|---|
-| 런타임 | Expo SDK | 54.0.35 |
-| React | React 19 | 19.1.0 |
-| React Native | New Architecture 기본 활성 | 0.81.5 |
-| 언어 | TypeScript (strict) | 5.8.3 |
-| SafeArea | react-native-safe-area-context | 5.6.2 |
-| 내비게이션 | 없음 (단일 화면) | 다음 화면 추가 시 React Navigation 도입 예정 |
-| 지도 | 미구현 | react-native-maps 또는 Kakao SDK 예정 |
-| 위치 | 미구현 | expo-location 도입 예정 |
-
-## web MVP와의 관계
-
-| 항목 | web (`web/`) | app (`app/`) |
-|---|---|---|
-| 언어 | JavaScript | TypeScript |
-| 라우터 | react-router-dom | React Navigation (예정) |
-| 스타일 | CSS / CSS Modules | StyleSheet.create |
-| 지도 | Kakao Map SDK (Web) | react-native-maps (예정) |
-| 데이터 | localStorage | AsyncStorage (예정) |
-| 점수 계산 | `src/utils/score.js` | `src/utils/score.ts` (동일 로직) |
-| Trust Score | `src/utils/trustScore.js` | `src/utils/trustScore.ts` (동일 로직) |
-
-## 향후 구현 계획
-
-### 단계 1 — 화면 추가
-- [ ] CourseDetailScreen (코스 상세 + Trust Score)
-- [ ] TraceScreen (수행 + GPS 체크인)
-- [ ] React Navigation Stack 도입
-
-### 단계 2 — 기능 추가
-- [ ] expo-location으로 GPS 체크인
-- [ ] react-native-maps 지도 뷰
-- [ ] AsyncStorage 코스 저장
-- [ ] SmartCourseScreen
-
-### 단계 3 — 백엔드 연동
-- [ ] backend API 연동 (localStorage → 서버)
-- [ ] 리뷰 작성 및 조회
-- [ ] 푸시 알림 (expo-notifications)
+네이티브 모듈 설정이 바뀌었으므로 배포 빌드에서는 새 development build/EAS build를 생성해야 합니다. Expo Go에서는 SDK 지원 범위 안에서 지도와 전경 위치 추적을 확인할 수 있습니다.

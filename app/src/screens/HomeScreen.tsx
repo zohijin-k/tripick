@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -14,6 +14,16 @@ import type { Course } from '../types/course';
 import type { RootStackParamList } from '../navigation/types';
 import { getUserCourses } from '../utils/courseStorage';
 import { fetchCourses } from '../api/backendApi';
+import * as Location from 'expo-location';
+import * as Notifications from 'expo-notifications';
+import { calculateDistanceMeters } from '../utils/distance';
+import { getTravelProfile } from '../utils/profileStorage';
+import {
+  formatAverageRating,
+  formatCompletionRate,
+  isVerifiedCourse,
+  MIN_VERIFIED_PERFORMERS,
+} from '../utils/courseMetrics';
 
 type HomeNavProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
@@ -42,10 +52,12 @@ function accentFor(theme: string) {
 function InlineCourseCard({
   course,
   rank,
+  verified,
   onPress,
 }: {
   course: Course;
   rank: number;
+  verified: boolean;
   onPress: () => void;
 }) {
   const accent = accentFor(course.theme);
@@ -54,7 +66,7 @@ function InlineCourseCard({
     <TouchableOpacity style={cardStyles.card} onPress={onPress} activeOpacity={0.82}>
       <View style={[cardStyles.header, { backgroundColor: accent }]}>
         <View style={cardStyles.rankBadge}>
-          <Text style={cardStyles.rankText}>TOP {rank}</Text>
+          <Text style={cardStyles.rankText}>{verified ? `TOP ${rank}` : '신규'}</Text>
         </View>
         <View style={cardStyles.themeBadge}>
           <Text style={cardStyles.themeText}>{course.theme}</Text>
@@ -72,12 +84,12 @@ function InlineCourseCard({
 
         <View style={cardStyles.metrics}>
           <View style={cardStyles.metric}>
-            <Text style={cardStyles.metricValue}>{course.completionRate}%</Text>
+            <Text style={cardStyles.metricValue}>{formatCompletionRate(course)}</Text>
             <Text style={cardStyles.metricLabel}>완주율</Text>
           </View>
           <View style={cardStyles.metricSep} />
           <View style={cardStyles.metric}>
-            <Text style={cardStyles.metricValue}>{course.averageRating}</Text>
+            <Text style={cardStyles.metricValue}>{formatAverageRating(course)}</Text>
             <Text style={cardStyles.metricLabel}>만족도</Text>
           </View>
           <View style={cardStyles.metricSep} />
@@ -189,9 +201,14 @@ export function HomeScreen() {
   const [allCourses, setAllCourses] = useState<Course[]>(
     () => (Array.isArray(mockCourses) ? mockCourses : []),
   );
-  const displayCourses = allCourses.slice(0, 5);
+  const verifiedCourses = allCourses.filter(isVerifiedCourse);
+  const isRankingActive = verifiedCourses.length > 0;
+  const displayCourses = (isRankingActive ? verifiedCourses : allCourses).slice(0, 5);
+  const ratedCourses = allCourses.filter((course) => course.averageRating > 0);
 
   const [userCourses, setUserCourses] = useState<Course[]>([]);
+  const [nearbyPrompt, setNearbyPrompt] = useState<{ placeName: string; courses: Course[] } | null>(null);
+  const notifiedPlaceRef = useRef<string | null>(null);
 
   // Reload user courses every time the screen gains focus
   useFocusEffect(
@@ -206,6 +223,64 @@ export function HomeScreen() {
     }, []),
   );
 
+  useEffect(() => {
+    if (allCourses.length === 0) return;
+    let active = true;
+    let subscription: Location.LocationSubscription | null = null;
+
+    (async () => {
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.status !== 'granted' || !active) return;
+      const profile = await getTravelProfile();
+      subscription = await Location.watchPositionAsync(
+        { accuracy: Location.Accuracy.Balanced, distanceInterval: 50, timeInterval: 15000 },
+        async (location) => {
+          if (!active) return;
+          const lat = location.coords.latitude;
+          const lng = location.coords.longitude;
+          const nearby = allCourses
+            .map((course) => {
+              const distances = course.spots
+                .filter((spot) => spot.lat != null && spot.lng != null)
+                .map((spot) => ({
+                  spot,
+                  distance: calculateDistanceMeters(lat, lng, spot.lat!, spot.lng!) ?? Number.POSITIVE_INFINITY,
+                }));
+              const closest = distances.sort((a, b) => a.distance - b.distance)[0];
+              return closest ? { ...course, distanceMeters: closest.distance, closestSpot: closest.spot } : null;
+            })
+            .filter((course): course is Course & { distanceMeters: number; closestSpot: Course['spots'][number] } => Boolean(course && course.distanceMeters <= 1500))
+            .sort((a, b) => {
+              const aPreference = a.theme === profile.travelStyle ? 1 : 0;
+              const bPreference = b.theme === profile.travelStyle ? 1 : 0;
+              return bPreference - aPreference || a.distanceMeters - b.distanceMeters;
+            })
+            .slice(0, 5);
+
+          const nearest = nearby[0];
+          if (!nearest || nearest.distanceMeters > 350 || notifiedPlaceRef.current === nearest.closestSpot.name) return;
+          notifiedPlaceRef.current = nearest.closestSpot.name;
+          const prompt = { placeName: nearest.closestSpot.name, courses: nearby };
+          setNearbyPrompt(prompt);
+
+          const notificationPermission = await Notifications.requestPermissionsAsync();
+          if (notificationPermission.status === 'granted') {
+            await Notifications.scheduleNotificationAsync({
+              content: {
+                title: `현재 ${nearest.closestSpot.name}에 있네요!`,
+                body: `${profile.nickname}님에게 추천하고 싶은 코스 ${nearby.length}개가 있어요.`,
+                data: { placeName: nearest.closestSpot.name },
+              },
+              trigger: null,
+            });
+          }
+        },
+      );
+    })();
+
+    return () => { active = false; subscription?.remove(); };
+  }, [allCourses]);
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView
@@ -215,6 +290,12 @@ export function HomeScreen() {
       >
         {/* ── 히어로 ── */}
         <View style={styles.hero}>
+          <View style={styles.heroActionRow}>
+            <View />
+            <TouchableOpacity style={styles.profileButton} onPress={() => navigation.navigate('Profile')}>
+              <Text style={styles.profileButtonText}>프로필</Text>
+            </TouchableOpacity>
+          </View>
           <Text style={styles.eyebrow}>Participatory Tourism Ranking</Text>
           <Text style={styles.brand}>TRIPICK</Text>
           <Text style={styles.description}>
@@ -223,7 +304,7 @@ export function HomeScreen() {
           <View style={styles.heroStats}>
             <View style={styles.heroStat}>
               <Text style={styles.heroStatValue}>{allCourses.length}</Text>
-              <Text style={styles.heroStatLabel}>검증 코스</Text>
+              <Text style={styles.heroStatLabel}>등록 코스</Text>
             </View>
             <View style={styles.heroStatDivider} />
             <View style={styles.heroStat}>
@@ -235,10 +316,10 @@ export function HomeScreen() {
             <View style={styles.heroStatDivider} />
             <View style={styles.heroStat}>
               <Text style={styles.heroStatValue}>
-                {allCourses.length > 0
+                {ratedCourses.length > 0
                   ? (
-                      allCourses.reduce((s, c) => s + c.averageRating, 0) /
-                      allCourses.length
+                      ratedCourses.reduce((s, c) => s + c.averageRating, 0) /
+                      ratedCourses.length
                     ).toFixed(1)
                   : '-'}
               </Text>
@@ -246,6 +327,21 @@ export function HomeScreen() {
             </View>
           </View>
         </View>
+
+        {nearbyPrompt && (
+          <TouchableOpacity
+            style={styles.nearbyBanner}
+            onPress={() => navigation.navigate('NearbyCourses', nearbyPrompt)}
+            activeOpacity={0.85}
+          >
+            <View style={styles.nearbyPulse} />
+            <View style={styles.nearbyBody}>
+              <Text style={styles.nearbyTitle}>현재 {nearbyPrompt.placeName}에 있네요!</Text>
+              <Text style={styles.nearbyText}>취향에 맞는 주변 코스 {nearbyPrompt.courses.length}개 보기</Text>
+            </View>
+            <Text style={styles.nearbyArrow}>→</Text>
+          </TouchableOpacity>
+        )}
 
         {/* ── 스마트 코스 만들기 배너 ── */}
         <TouchableOpacity
@@ -296,18 +392,22 @@ export function HomeScreen() {
             완주율 × 50% + 만족도 × 30% + 수행자 수 × 20%
           </Text>
           <Text style={styles.formulaNote}>
-            실제로 코스를 걸어 완주한 수행자들의 데이터로만 점수를 산출합니다.
+            실제 수행 데이터만 사용하며, 수행자 {MIN_VERIFIED_PERFORMERS}명 이상부터 검증 랭킹에 반영합니다.
           </Text>
         </View>
 
         {/* ── 랭킹 섹션 ── */}
         <View style={styles.sectionHeader}>
           <View>
-            <Text style={styles.sectionEyebrow}>Verified Ranking</Text>
-            <Text style={styles.sectionTitle}>검증된 코스 TOP 5</Text>
+            <Text style={styles.sectionEyebrow}>{isRankingActive ? 'Verified Ranking' : 'Cold Start'}</Text>
+            <Text style={styles.sectionTitle}>
+              {isRankingActive ? '검증된 코스 TOP 5' : '전주 신규 추천 코스'}
+            </Text>
           </View>
           <View style={styles.sectionBadge}>
-            <Text style={styles.sectionBadgeText}>{displayCourses.length}개 코스</Text>
+            <Text style={styles.sectionBadgeText}>
+              {isRankingActive ? `${displayCourses.length}개 코스` : '데이터 수집 중'}
+            </Text>
           </View>
         </View>
 
@@ -321,6 +421,7 @@ export function HomeScreen() {
               key={course.id}
               course={course}
               rank={index + 1}
+              verified={isRankingActive}
               onPress={() => navigation.navigate('CourseDetail', { courseId: course.id })}
             />
           ))
@@ -377,6 +478,9 @@ const styles = StyleSheet.create({
   hero: {
     backgroundColor: '#13315c', borderRadius: 20, padding: 24, marginBottom: 16,
   },
+  heroActionRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 },
+  profileButton: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.45)', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6 },
+  profileButtonText: { color: '#fff', fontSize: 11, fontWeight: '700' },
   eyebrow: { color: '#4fb286', fontSize: 11, fontWeight: '600', letterSpacing: 1, marginBottom: 6 },
   brand: { color: '#ffffff', fontSize: 36, fontWeight: '800', letterSpacing: -1, marginBottom: 10 },
   description: { color: 'rgba(255,255,255,0.72)', fontSize: 13, lineHeight: 20, marginBottom: 20 },
@@ -387,6 +491,13 @@ const styles = StyleSheet.create({
   heroStatValue: { color: '#4fb286', fontSize: 20, fontWeight: '800', marginBottom: 2 },
   heroStatLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 10 },
   heroStatDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.15)', marginHorizontal: 8 },
+
+  nearbyBanner: { backgroundColor: '#fff', borderRadius: 8, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: '#9ed8ca', flexDirection: 'row', alignItems: 'center', gap: 10 },
+  nearbyPulse: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#10b981', borderWidth: 3, borderColor: '#d1fae5' },
+  nearbyBody: { flex: 1 },
+  nearbyTitle: { color: '#0b5f4b', fontSize: 13, fontWeight: '800' },
+  nearbyText: { color: '#52746c', fontSize: 11, marginTop: 2 },
+  nearbyArrow: { color: '#0f8b6d', fontSize: 20, fontWeight: '700' },
 
   smartBanner: {
     backgroundColor: '#0f8b6d',

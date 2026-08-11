@@ -23,6 +23,18 @@ export interface Course {
   spots: Spot[];
   transport?: string;
   recommendationReasons?: string[];
+  distanceMeters?: number;
+  preferenceBonus?: number;
+  trustMetrics?: {
+    startedCount: number;
+    completedCount: number;
+    reviewCount: number;
+    verifiedReviewCount: number;
+    checkInCount: number;
+    verifiedCheckInCount: number;
+    qualityFieldCount: number;
+    filledQualityFieldCount: number;
+  };
 }
 
 export interface Review {
@@ -31,6 +43,9 @@ export interface Review {
   rating: number;
   comment: string;
   createdAt: string;
+  completionRate?: number;
+  weight?: number;
+  authorName?: string;
 }
 
 export interface TripickScoreResult {

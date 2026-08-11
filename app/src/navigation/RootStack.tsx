@@ -5,6 +5,8 @@ import { HomeScreen } from '../screens/HomeScreen';
 import { CourseDetailScreen } from '../screens/CourseDetailScreen';
 import { TraceScreen } from '../screens/TraceScreen';
 import { SmartCourseScreen } from '../screens/SmartCourseScreen';
+import { ProfileScreen } from '../screens/ProfileScreen';
+import { NearbyCoursesScreen } from '../screens/NearbyCoursesScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -15,6 +17,8 @@ export function RootStack() {
       <Stack.Screen name="CourseDetail" component={CourseDetailScreen} />
       <Stack.Screen name="Trace" component={TraceScreen} />
       <Stack.Screen name="SmartCourse" component={SmartCourseScreen} />
+      <Stack.Screen name="Profile" component={ProfileScreen} />
+      <Stack.Screen name="NearbyCourses" component={NearbyCoursesScreen} />
     </Stack.Navigator>
   );
 }

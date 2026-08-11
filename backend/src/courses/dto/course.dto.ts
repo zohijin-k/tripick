@@ -24,13 +24,11 @@ export class SpotDto {
   @IsString()
   category?: string;
 
-  @IsOptional()
   @IsNumber()
-  lat?: number;
+  lat!: number;
 
-  @IsOptional()
   @IsNumber()
-  lng?: number;
+  lng!: number;
 
   @IsOptional()
   @IsString()
@@ -93,15 +91,30 @@ export class CheckInDto {
   @IsString()
   spotId!: string;
 
-  @IsOptional()
   @IsNumber()
-  lat?: number;
+  lat!: number;
 
-  @IsOptional()
   @IsNumber()
-  lng?: number;
+  lng!: number;
 
   @IsOptional()
   @IsBoolean()
   isManual?: boolean;
+}
+
+export class NearbyCourseQueryDto {
+  @Type(() => Number)
+  @IsNumber()
+  lat!: number;
+
+  @Type(() => Number)
+  @IsNumber()
+  lng!: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(100)
+  @Max(10000)
+  radius?: number;
 }

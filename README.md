@@ -28,8 +28,8 @@ npm run dev
 | 패키지 | 상태 | 기술 스택 |
 |---|---|---|
 | `web/` | ✅ MVP 완성 | React 18 · Vite · react-router-dom |
-| `app/` | 🚧 진행 중 | React Native · Expo 54 · TypeScript |
-| `backend/` | 🚧 초기 구축 완료 (TourAPI 프록시) | NestJS · TypeScript |
+| `app/` | ✅ 핵심 모바일 흐름 구현 | React Native · Expo 54 · TypeScript |
+| `backend/` | ✅ PostgreSQL 영속화 API 구현 | NestJS · Prisma · PostgreSQL |
 
 ## 주요 기능 (web)
 
@@ -65,6 +65,8 @@ npx expo start
 ```
 
 앱은 TourAPI를 직접 호출하지 않고 NestJS backend(`/api/tour/spots/jeonju`)만 호출합니다. `EXPO_PUBLIC_API_BASE_URL`이 없거나 backend 호출이 실패하면 앱은 자동으로 내장 mock 관광지 데이터로 fallback합니다.
+
+모바일 앱에는 프로필 취향 저장, 위치 기반 주변 코스 추천, 네이티브 지도, GPS 50m 자동 체크인, 완주 후 리뷰, 실제 수행 데이터 기반 Trust Score가 구현되어 있습니다.
 
 ⚠️ **실기기 연결 주의사항**: React Native 실기기(Expo Go 등)에서는 `localhost`가 기기 자신을 가리키므로 Mac에서 실행 중인 backend에 접근할 수 없습니다. Mac의 로컬 IP를 사용하세요.
 ```bash

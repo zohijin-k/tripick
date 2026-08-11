@@ -23,6 +23,15 @@ interface AuthResponse {
   accessToken: string;
 }
 
+export interface UserProfile {
+  id?: string;
+  email?: string;
+  nickname: string;
+  travelStyle: string | null;
+  duration: string | null;
+  transport: string | null;
+}
+
 export interface TraceResponse {
   visitedSpotIds: string[];
   completionRate: number;
@@ -104,6 +113,23 @@ export async function fetchJeonjuSpots(): Promise<BackendTourSpot[] | null> {
 
 export async function fetchCourses(): Promise<Course[] | null> {
   return requestJson<Course[]>('/courses');
+}
+
+export async function fetchNearbyCourses(lat: number, lng: number): Promise<Course[] | null> {
+  const query = new URLSearchParams({ lat: String(lat), lng: String(lng) });
+  return requestJson<Course[]>(`/courses/nearby?${query.toString()}`, { auth: true });
+}
+
+export async function fetchProfile(): Promise<UserProfile | null> {
+  return requestJson<UserProfile>('/auth/me', { auth: true });
+}
+
+export async function updateProfile(profile: Omit<UserProfile, 'id' | 'email'>): Promise<UserProfile | null> {
+  return requestJson<UserProfile>('/auth/me', {
+    method: 'PATCH',
+    auth: true,
+    body: JSON.stringify(profile),
+  });
 }
 
 export async function fetchMyCourses(): Promise<Course[] | null> {
