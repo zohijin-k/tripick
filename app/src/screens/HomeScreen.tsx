@@ -1,5 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
+  ImageBackground,
+  Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import mockCourses from '../data/mockCourses';
+import { getCourseImage } from '../data/courseImages';
 import type { Course } from '../types/course';
 import type { RootStackParamList } from '../navigation/types';
 import { getUserCourses } from '../utils/courseStorage';
@@ -47,6 +51,73 @@ function accentFor(theme: string) {
   return ACCENT[theme] ?? '#0f8b6d';
 }
 
+// ─── PhotoHeader (shared by course cards) ─────────────────────────────────────
+
+function PhotoHeader({
+  course,
+  badges,
+}: {
+  course: Course;
+  badges: React.ReactNode;
+}) {
+  const imageUrl = getCourseImage(course);
+  const accent = accentFor(course.theme);
+
+  const inner = (
+    <View style={phStyles.overlay}>
+      <View style={phStyles.badgeRow}>{badges}</View>
+      <View>
+        <Text style={phStyles.title} numberOfLines={1}>{course.title}</Text>
+        <Text style={phStyles.meta}>
+          {course.area} · {course.distance} · {course.spotCount}곳
+        </Text>
+      </View>
+    </View>
+  );
+
+  if (!imageUrl) {
+    return <View style={[phStyles.container, { backgroundColor: accent }]}>{inner}</View>;
+  }
+
+  return (
+    <ImageBackground source={{ uri: imageUrl }} style={phStyles.container} resizeMode="cover">
+      {inner}
+    </ImageBackground>
+  );
+}
+
+const phStyles = StyleSheet.create({
+  container: { height: 148, backgroundColor: '#1f2937' },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15,23,42,0.34)',
+    padding: 14,
+    justifyContent: 'space-between',
+  },
+  badgeRow: { flexDirection: 'row', gap: 6 },
+  title: { color: '#ffffff', fontSize: 18, fontWeight: '800', marginBottom: 2 },
+  meta: { color: 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: '500' },
+});
+
+function HeaderBadge({ label, strong }: { label: string; strong?: boolean }) {
+  return (
+    <View style={[hbStyles.badge, strong && hbStyles.badgeStrong]}>
+      <Text style={hbStyles.text}>{label}</Text>
+    </View>
+  );
+}
+
+const hbStyles = StyleSheet.create({
+  badge: {
+    backgroundColor: 'rgba(15,23,42,0.45)',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  badgeStrong: { backgroundColor: '#0f8b6d' },
+  text: { color: '#ffffff', fontSize: 11, fontWeight: '700', letterSpacing: 0.4 },
+});
+
 // ─── InlineCourseCard (ranked) ────────────────────────────────────────────────
 
 function InlineCourseCard({
@@ -60,51 +131,42 @@ function InlineCourseCard({
   verified: boolean;
   onPress: () => void;
 }) {
-  const accent = accentFor(course.theme);
-
   return (
     <TouchableOpacity style={cardStyles.card} onPress={onPress} activeOpacity={0.82}>
-      <View style={[cardStyles.header, { backgroundColor: accent }]}>
-        <View style={cardStyles.rankBadge}>
-          <Text style={cardStyles.rankText}>{verified ? `TOP ${rank}` : '신규'}</Text>
-        </View>
-        <View style={cardStyles.themeBadge}>
-          <Text style={cardStyles.themeText}>{course.theme}</Text>
-        </View>
-        <Text style={cardStyles.headerTitle} numberOfLines={1}>
-          {course.title}
-        </Text>
-      </View>
+      <PhotoHeader
+        course={course}
+        badges={
+          <>
+            <HeaderBadge label={verified ? `TOP ${rank}` : '신규'} strong={verified} />
+            <HeaderBadge label={course.theme} />
+          </>
+        }
+      />
 
       <View style={cardStyles.body}>
-        <Text style={cardStyles.title} numberOfLines={1}>{course.title}</Text>
-        <Text style={cardStyles.meta}>{course.area} · {course.theme} · {course.distance}</Text>
-
-        <View style={cardStyles.divider} />
-
-        <View style={cardStyles.metrics}>
-          <View style={cardStyles.metric}>
-            <Text style={cardStyles.metricValue}>{formatCompletionRate(course)}</Text>
-            <Text style={cardStyles.metricLabel}>완주율</Text>
+        {verified ? (
+          <View style={cardStyles.metrics}>
+            <View style={cardStyles.metric}>
+              <Text style={cardStyles.metricValue}>{formatCompletionRate(course)}</Text>
+              <Text style={cardStyles.metricLabel}>완주율</Text>
+            </View>
+            <View style={cardStyles.metricSep} />
+            <View style={cardStyles.metric}>
+              <Text style={cardStyles.metricValue}>{formatAverageRating(course)}</Text>
+              <Text style={cardStyles.metricLabel}>만족도</Text>
+            </View>
+            <View style={cardStyles.metricSep} />
+            <View style={cardStyles.metric}>
+              <Text style={cardStyles.metricValue}>{course.performers}명</Text>
+              <Text style={cardStyles.metricLabel}>수행자</Text>
+            </View>
           </View>
-          <View style={cardStyles.metricSep} />
-          <View style={cardStyles.metric}>
-            <Text style={cardStyles.metricValue}>{formatAverageRating(course)}</Text>
-            <Text style={cardStyles.metricLabel}>만족도</Text>
-          </View>
-          <View style={cardStyles.metricSep} />
-          <View style={cardStyles.metric}>
-            <Text style={cardStyles.metricValue}>{course.performers}명</Text>
-            <Text style={cardStyles.metricLabel}>수행자</Text>
-          </View>
-          <View style={cardStyles.metricSep} />
-          <View style={cardStyles.metric}>
-            <Text style={cardStyles.metricValue}>{course.spotCount}곳</Text>
-            <Text style={cardStyles.metricLabel}>지점 수</Text>
-          </View>
-        </View>
-
-        <Text style={cardStyles.tapHint}>탭하여 자세히 보기 →</Text>
+        ) : (
+          <Text style={cardStyles.freshNote}>
+            아직 아무도 걷지 않은 코스예요 · 첫 수행자가 되어보세요
+          </Text>
+        )}
+        <Text style={cardStyles.tapHint}>자세히 보기 →</Text>
       </View>
     </TouchableOpacity>
   );
@@ -113,85 +175,78 @@ function InlineCourseCard({
 // ─── UserCourseCard ───────────────────────────────────────────────────────────
 
 function UserCourseCard({ course, onPress }: { course: Course; onPress: () => void }) {
-  const accent = accentFor(course.theme);
-
   return (
-    <TouchableOpacity style={ucStyles.card} onPress={onPress} activeOpacity={0.82}>
-      <View style={[ucStyles.header, { backgroundColor: accent }]}>
-        <View style={ucStyles.myBadge}>
-          <Text style={ucStyles.myBadgeText}>MY</Text>
-        </View>
-        <View style={ucStyles.themeBadge}>
-          <Text style={ucStyles.themeText}>{course.theme}</Text>
-        </View>
-        <Text style={ucStyles.headerTitle} numberOfLines={1}>{course.title}</Text>
-      </View>
+    <TouchableOpacity style={cardStyles.card} onPress={onPress} activeOpacity={0.82}>
+      <PhotoHeader
+        course={course}
+        badges={
+          <>
+            <HeaderBadge label="MY" strong />
+            <HeaderBadge label={course.theme} />
+          </>
+        }
+      />
 
-      <View style={ucStyles.body}>
-        <Text style={ucStyles.title} numberOfLines={1}>{course.title}</Text>
-        <Text style={ucStyles.meta}>
-          {course.area} · {course.theme}
-          {course.transport ? ` · ${course.transport}` : ''}
-          {' · '}{course.distance}
+      <View style={cardStyles.body}>
+        <Text style={cardStyles.freshNote}>
+          {course.transport ?? '도보'} 이동 · 내가 만든 코스
         </Text>
-
-        <View style={ucStyles.divider} />
-
-        <View style={ucStyles.metrics}>
-          <View style={ucStyles.metric}>
-            <Text style={ucStyles.metricValue}>{course.spotCount}곳</Text>
-            <Text style={ucStyles.metricLabel}>장소 수</Text>
-          </View>
-          <View style={ucStyles.metricSep} />
-          <View style={ucStyles.metric}>
-            <Text style={ucStyles.metricValue}>{course.distance}</Text>
-            <Text style={ucStyles.metricLabel}>거리</Text>
-          </View>
-          <View style={ucStyles.metricSep} />
-          <View style={ucStyles.metric}>
-            <Text style={ucStyles.metricValue}>{course.transport ?? '도보'}</Text>
-            <Text style={ucStyles.metricLabel}>이동 수단</Text>
-          </View>
-        </View>
-
-        <Text style={ucStyles.tapHint}>탭하여 자세히 보기 →</Text>
+        <Text style={cardStyles.tapHint}>자세히 보기 →</Text>
       </View>
     </TouchableOpacity>
   );
 }
 
-const ucStyles = StyleSheet.create({
-  card: {
+// ─── ScoreInfoSheet (산정식 안내) ─────────────────────────────────────────────
+
+function ScoreInfoSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={sheetStyles.backdrop} onPress={onClose}>
+        <Pressable style={sheetStyles.sheet} onPress={() => {}}>
+          <View style={sheetStyles.grabber} />
+          <Text style={sheetStyles.title}>랭킹은 이렇게 만들어져요</Text>
+          <Text style={sheetStyles.formula}>
+            TRIPICK Score = 완주율 × 50% + 만족도 × 30% + 수행자 수 × 20%
+          </Text>
+          <Text style={sheetStyles.desc}>
+            광고나 리뷰 조작 없이, GPS로 검증된 실제 수행 데이터만 사용해요.{'\n'}
+            수행자 {MIN_VERIFIED_PERFORMERS}명 이상 모인 코스부터 검증 랭킹에 올라갑니다.
+          </Text>
+          <TouchableOpacity style={sheetStyles.closeBtn} onPress={onClose} activeOpacity={0.85}>
+            <Text style={sheetStyles.closeBtnText}>확인</Text>
+          </TouchableOpacity>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+const sheetStyles = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: 'rgba(15,23,42,0.45)', justifyContent: 'flex-end' },
+  sheet: {
     backgroundColor: '#ffffff',
-    borderRadius: 16, marginBottom: 12, overflow: 'hidden',
-    shadowColor: '#13315c', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08, shadowRadius: 8, elevation: 3,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    paddingBottom: 36,
   },
-  header: {
-    height: 52, flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 14,
+  grabber: {
+    alignSelf: 'center',
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: '#dce6ec', marginBottom: 18,
   },
-  myBadge: {
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, marginRight: 8,
+  title: { fontSize: 18, fontWeight: '800', color: '#13315c', marginBottom: 12 },
+  formula: {
+    fontSize: 13, fontWeight: '700', color: '#0f8b6d',
+    backgroundColor: '#e8f5f1', borderRadius: 10, padding: 12, marginBottom: 12,
   },
-  myBadgeText: { color: '#ffffff', fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
-  themeBadge: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, marginRight: 8,
+  desc: { fontSize: 13, color: '#5c6b7a', lineHeight: 20, marginBottom: 20 },
+  closeBtn: {
+    backgroundColor: '#13315c', borderRadius: 12,
+    paddingVertical: 14, alignItems: 'center',
   },
-  themeText: { color: '#ffffff', fontSize: 11, fontWeight: '600' },
-  headerTitle: { flex: 1, color: 'rgba(255,255,255,0.9)', fontSize: 13, fontWeight: '600', textAlign: 'right' },
-  body: { padding: 14 },
-  title: { fontSize: 15, fontWeight: '700', color: '#13315c', marginBottom: 4 },
-  meta: { fontSize: 12, color: '#5c6b7a', marginBottom: 10 },
-  divider: { height: 1, backgroundColor: '#dce6ec', marginBottom: 10 },
-  metrics: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  metric: { flex: 1, alignItems: 'center' },
-  metricValue: { fontSize: 13, fontWeight: '700', color: '#13315c', marginBottom: 2 },
-  metricLabel: { fontSize: 10, color: '#8a9db0' },
-  metricSep: { width: 1, height: 28, backgroundColor: '#dce6ec' },
-  tapHint: { fontSize: 11, color: '#0f8b6d', fontWeight: '600', textAlign: 'right', marginTop: 2 },
+  closeBtnText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
 });
 
 // ─── HomeScreen ───────────────────────────────────────────────────────────────
@@ -204,10 +259,11 @@ export function HomeScreen() {
   const verifiedCourses = allCourses.filter(isVerifiedCourse);
   const isRankingActive = verifiedCourses.length > 0;
   const displayCourses = (isRankingActive ? verifiedCourses : allCourses).slice(0, 5);
-  const ratedCourses = allCourses.filter((course) => course.averageRating > 0);
+  const totalPerformers = allCourses.reduce((s, c) => s + c.performers, 0);
 
   const [userCourses, setUserCourses] = useState<Course[]>([]);
   const [nearbyPrompt, setNearbyPrompt] = useState<{ placeName: string; courses: Course[] } | null>(null);
+  const [scoreInfoVisible, setScoreInfoVisible] = useState(false);
   const notifiedPlaceRef = useRef<string | null>(null);
 
   // Reload user courses every time the screen gains focus
@@ -296,36 +352,23 @@ export function HomeScreen() {
               <Text style={styles.profileButtonText}>프로필</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.eyebrow}>Participatory Tourism Ranking</Text>
           <Text style={styles.brand}>TRIPICK</Text>
           <Text style={styles.description}>
-            실제 수행 데이터를 기반으로 검증된 전주 여행 코스를 랭킹화합니다.
+            직접 걸어서 검증하는 전주 여행 코스
           </Text>
-          <View style={styles.heroStats}>
-            <View style={styles.heroStat}>
-              <Text style={styles.heroStatValue}>{allCourses.length}</Text>
-              <Text style={styles.heroStatLabel}>등록 코스</Text>
+          {totalPerformers > 0 && (
+            <View style={styles.heroStats}>
+              <View style={styles.heroStat}>
+                <Text style={styles.heroStatValue}>{allCourses.length}</Text>
+                <Text style={styles.heroStatLabel}>등록 코스</Text>
+              </View>
+              <View style={styles.heroStatDivider} />
+              <View style={styles.heroStat}>
+                <Text style={styles.heroStatValue}>{totalPerformers}</Text>
+                <Text style={styles.heroStatLabel}>총 수행자</Text>
+              </View>
             </View>
-            <View style={styles.heroStatDivider} />
-            <View style={styles.heroStat}>
-              <Text style={styles.heroStatValue}>
-                {allCourses.reduce((s, c) => s + c.performers, 0)}
-              </Text>
-              <Text style={styles.heroStatLabel}>총 수행자</Text>
-            </View>
-            <View style={styles.heroStatDivider} />
-            <View style={styles.heroStat}>
-              <Text style={styles.heroStatValue}>
-                {ratedCourses.length > 0
-                  ? (
-                      ratedCourses.reduce((s, c) => s + c.averageRating, 0) /
-                      ratedCourses.length
-                    ).toFixed(1)
-                  : '-'}
-              </Text>
-              <Text style={styles.heroStatLabel}>평균 만족도</Text>
-            </View>
-          </View>
+          )}
         </View>
 
         {nearbyPrompt && (
@@ -350,11 +393,9 @@ export function HomeScreen() {
           activeOpacity={0.88}
         >
           <View style={styles.smartBannerLeft}>
-            <Text style={styles.smartBannerEyebrow}>AI COURSE BUILDER</Text>
             <Text style={styles.smartBannerTitle}>스마트 코스 만들기</Text>
             <Text style={styles.smartBannerDesc}>
-              여행 스타일 · 소요 시간 · 이동 방식을 선택하면{'\n'}
-              전주 맞춤 코스를 자동으로 생성합니다
+              스타일 · 시간 · 이동 방식만 고르면 나만의 전주 코스 완성
             </Text>
           </View>
           <Text style={styles.smartBannerIcon}>✦</Text>
@@ -364,10 +405,7 @@ export function HomeScreen() {
         {userCourses.length > 0 && (
           <>
             <View style={styles.sectionHeader}>
-              <View>
-                <Text style={styles.sectionEyebrow}>My Courses</Text>
-                <Text style={styles.sectionTitle}>내가 만든 코스</Text>
-              </View>
+              <Text style={styles.sectionTitle}>내가 만든 코스</Text>
               <View style={[styles.sectionBadge, styles.sectionBadgeMy]}>
                 <Text style={[styles.sectionBadgeText, styles.sectionBadgeMyText]}>
                   {userCourses.length}개
@@ -385,35 +423,30 @@ export function HomeScreen() {
           </>
         )}
 
-        {/* ── Score 공식 카드 ── */}
-        <View style={styles.formulaCard}>
-          <Text style={styles.formulaTitle}>TRIPICK Score 산정식</Text>
-          <Text style={styles.formulaText}>
-            완주율 × 50% + 만족도 × 30% + 수행자 수 × 20%
-          </Text>
-          <Text style={styles.formulaNote}>
-            실제 수행 데이터만 사용하며, 수행자 {MIN_VERIFIED_PERFORMERS}명 이상부터 검증 랭킹에 반영합니다.
-          </Text>
-        </View>
-
         {/* ── 랭킹 섹션 ── */}
         <View style={styles.sectionHeader}>
-          <View>
-            <Text style={styles.sectionEyebrow}>{isRankingActive ? 'Verified Ranking' : 'Cold Start'}</Text>
+          <View style={styles.sectionTitleRow}>
             <Text style={styles.sectionTitle}>
-              {isRankingActive ? '검증된 코스 TOP 5' : '전주 신규 추천 코스'}
+              {isRankingActive ? '검증된 코스 TOP 5' : '새로 열린 코스'}
             </Text>
+            <TouchableOpacity
+              style={styles.infoButton}
+              onPress={() => setScoreInfoVisible(true)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={styles.infoButtonText}>?</Text>
+            </TouchableOpacity>
           </View>
           <View style={styles.sectionBadge}>
             <Text style={styles.sectionBadgeText}>
-              {isRankingActive ? `${displayCourses.length}개 코스` : '데이터 수집 중'}
+              {isRankingActive ? `${displayCourses.length}개 코스` : '첫 수행자 모집 중'}
             </Text>
           </View>
         </View>
 
         {displayCourses.length === 0 ? (
           <View style={styles.emptyBox}>
-            <Text style={styles.emptyText}>사용 가능한 데이터 없음</Text>
+            <Text style={styles.emptyText}>아직 등록된 코스가 없어요</Text>
           </View>
         ) : (
           displayCourses.map((course, index) => (
@@ -431,6 +464,8 @@ export function HomeScreen() {
           더 많은 코스 보기 및 직접 수행 기록은 준비 중입니다.
         </Text>
       </ScrollView>
+
+      <ScoreInfoSheet visible={scoreInfoVisible} onClose={() => setScoreInfoVisible(false)} />
     </SafeAreaView>
   );
 }
@@ -444,30 +479,14 @@ const cardStyles = StyleSheet.create({
     shadowColor: '#13315c', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08, shadowRadius: 8, elevation: 3,
   },
-  header: {
-    height: 56, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14,
-  },
-  rankBadge: {
-    backgroundColor: 'rgba(255,255,255,0.22)',
-    borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, marginRight: 8,
-  },
-  rankText: { color: '#ffffff', fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
-  themeBadge: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, marginRight: 8,
-  },
-  themeText: { color: '#ffffff', fontSize: 11, fontWeight: '600' },
-  headerTitle: { flex: 1, color: 'rgba(255,255,255,0.9)', fontSize: 13, fontWeight: '600', textAlign: 'right' },
-  body: { padding: 16 },
-  title: { fontSize: 16, fontWeight: '700', color: '#13315c', marginBottom: 4 },
-  meta: { fontSize: 12, color: '#5c6b7a', marginBottom: 12 },
-  divider: { height: 1, backgroundColor: '#dce6ec', marginBottom: 12 },
-  metrics: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  body: { paddingHorizontal: 16, paddingVertical: 12 },
+  metrics: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   metric: { flex: 1, alignItems: 'center' },
   metricValue: { fontSize: 14, fontWeight: '700', color: '#13315c', marginBottom: 2 },
   metricLabel: { fontSize: 10, color: '#8a9db0' },
   metricSep: { width: 1, height: 28, backgroundColor: '#dce6ec' },
-  tapHint: { fontSize: 11, color: '#0f8b6d', fontWeight: '600', textAlign: 'right', marginTop: 2 },
+  freshNote: { fontSize: 12, color: '#5c6b7a', marginBottom: 6 },
+  tapHint: { fontSize: 11, color: '#0f8b6d', fontWeight: '600', textAlign: 'right' },
 });
 
 const styles = StyleSheet.create({
@@ -481,11 +500,10 @@ const styles = StyleSheet.create({
   heroActionRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 },
   profileButton: { borderWidth: 1, borderColor: 'rgba(255,255,255,0.45)', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6 },
   profileButtonText: { color: '#fff', fontSize: 11, fontWeight: '700' },
-  eyebrow: { color: '#4fb286', fontSize: 11, fontWeight: '600', letterSpacing: 1, marginBottom: 6 },
-  brand: { color: '#ffffff', fontSize: 36, fontWeight: '800', letterSpacing: -1, marginBottom: 10 },
-  description: { color: 'rgba(255,255,255,0.72)', fontSize: 13, lineHeight: 20, marginBottom: 20 },
+  brand: { color: '#ffffff', fontSize: 34, fontWeight: '800', letterSpacing: -1, marginBottom: 6 },
+  description: { color: 'rgba(255,255,255,0.72)', fontSize: 13, lineHeight: 20 },
   heroStats: {
-    flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: 14,
+    flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: 14, marginTop: 18,
   },
   heroStat: { flex: 1, alignItems: 'center' },
   heroStatValue: { color: '#4fb286', fontSize: 20, fontWeight: '800', marginBottom: 2 },
@@ -507,31 +525,26 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25, shadowRadius: 12, elevation: 6,
   },
   smartBannerLeft: { flex: 1 },
-  smartBannerEyebrow: { color: 'rgba(255,255,255,0.7)', fontSize: 10, fontWeight: '700', letterSpacing: 0.8, marginBottom: 4 },
   smartBannerTitle: { color: '#ffffff', fontSize: 18, fontWeight: '800', marginBottom: 6 },
   smartBannerDesc: { color: 'rgba(255,255,255,0.8)', fontSize: 12, lineHeight: 18 },
   smartBannerIcon: { color: 'rgba(255,255,255,0.5)', fontSize: 40, marginLeft: 8 },
 
   sectionHeader: {
     flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'flex-end', marginBottom: 14,
+    alignItems: 'center', marginBottom: 14,
   },
-  sectionEyebrow: { fontSize: 10, color: '#0f8b6d', fontWeight: '700', letterSpacing: 0.8, marginBottom: 2 },
+  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: '#13315c' },
+  infoButton: {
+    width: 18, height: 18, borderRadius: 9,
+    borderWidth: 1.5, borderColor: '#8a9db0',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  infoButtonText: { fontSize: 11, fontWeight: '700', color: '#8a9db0', lineHeight: 13 },
   sectionBadge: { backgroundColor: '#e8f5f1', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   sectionBadgeText: { fontSize: 11, color: '#0f8b6d', fontWeight: '600' },
   sectionBadgeMy: { backgroundColor: '#eff6ff' },
   sectionBadgeMyText: { color: '#1d4ed8' },
-
-  formulaCard: {
-    backgroundColor: '#ffffff', borderRadius: 14, padding: 16, marginBottom: 20,
-    borderLeftWidth: 4, borderLeftColor: '#0f8b6d',
-    shadowColor: '#13315c', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06, shadowRadius: 6, elevation: 2,
-  },
-  formulaTitle: { fontSize: 12, fontWeight: '700', color: '#0f8b6d', marginBottom: 6, letterSpacing: 0.3 },
-  formulaText: { fontSize: 13, fontWeight: '600', color: '#13315c', marginBottom: 6 },
-  formulaNote: { fontSize: 11, color: '#5c6b7a', lineHeight: 16 },
 
   emptyBox: { backgroundColor: '#fff4e6', borderRadius: 10, padding: 20, alignItems: 'center', marginBottom: 16 },
   emptyText: { fontSize: 14, fontWeight: '600', color: '#c2410c' },

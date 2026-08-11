@@ -2,12 +2,14 @@ import React, { useState, useCallback, useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  ImageBackground,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -185,9 +187,36 @@ const chipStyles = StyleSheet.create({
 });
 
 // Preview card shown after course generation
-function PreviewCard({ course, accent }: { course: Course; accent: string }) {
+function PreviewCard({
+  course,
+  accent,
+  coverImage,
+  onPickImage,
+}: {
+  course: Course;
+  accent: string;
+  coverImage: string | null;
+  onPickImage: () => void;
+}) {
   return (
     <View style={[pvStyles.card, { borderTopColor: accent }]}>
+      {/* ── 대표 사진 ── */}
+      {coverImage ? (
+        <TouchableOpacity onPress={onPickImage} activeOpacity={0.85}>
+          <ImageBackground source={{ uri: coverImage }} style={pvStyles.cover} resizeMode="cover" imageStyle={pvStyles.coverImage}>
+            <View style={pvStyles.coverEditBadge}>
+              <Text style={pvStyles.coverEditText}>사진 변경</Text>
+            </View>
+          </ImageBackground>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity style={pvStyles.coverPlaceholder} onPress={onPickImage} activeOpacity={0.75}>
+          <Text style={pvStyles.coverPlaceholderIcon}>📷</Text>
+          <Text style={pvStyles.coverPlaceholderText}>대표 사진 추가하기</Text>
+          <Text style={pvStyles.coverPlaceholderSub}>갤러리에서 코스를 대표할 사진을 골라보세요</Text>
+        </TouchableOpacity>
+      )}
+
       <View style={pvStyles.header}>
         <View style={[pvStyles.badge, { backgroundColor: accent + '20', borderColor: accent }]}>
           <Text style={[pvStyles.badgeText, { color: accent }]}>{course.theme}</Text>
@@ -232,6 +261,34 @@ function PreviewCard({ course, accent }: { course: Course; accent: string }) {
 }
 
 const pvStyles = StyleSheet.create({
+  cover: {
+    height: 150,
+    marginBottom: 14,
+    justifyContent: 'flex-end',
+    alignItems: 'flex-end',
+  },
+  coverImage: { borderRadius: 12 },
+  coverEditBadge: {
+    backgroundColor: 'rgba(15,23,42,0.6)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    margin: 10,
+  },
+  coverEditText: { color: '#ffffff', fontSize: 11, fontWeight: '700' },
+  coverPlaceholder: {
+    borderWidth: 1.5,
+    borderColor: '#cbd5e1',
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    paddingVertical: 22,
+    alignItems: 'center',
+    marginBottom: 14,
+    backgroundColor: '#f8fafc',
+  },
+  coverPlaceholderIcon: { fontSize: 24, marginBottom: 6 },
+  coverPlaceholderText: { fontSize: 13, fontWeight: '700', color: '#334155' },
+  coverPlaceholderSub: { fontSize: 11, color: '#8a9db0', marginTop: 2 },
   card: {
     backgroundColor: '#ffffff',
     borderRadius: 16,
@@ -284,6 +341,7 @@ export function SmartCourseScreen() {
   const [selectedDuration, setSelectedDuration] = useState<DurationOption | null>(null);
   const [selectedTransport, setSelectedTransport] = useState<TransportOption | null>(null);
   const [generatedCourse, setGeneratedCourse] = useState<Course | null>(null);
+  const [coverImage, setCoverImage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const { spots: tourSpots, loading: spotsLoading, source: spotsSource } = useTourSpots();
@@ -309,6 +367,24 @@ export function SmartCourseScreen() {
     setGeneratedCourse(course);
   }, [tourSpots, selectedStyle, selectedDuration, selectedTransport]);
 
+  // ── 대표 사진 선택 (갤러리) ──
+  const handlePickImage = useCallback(async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('사진 접근 권한 필요', '설정에서 사진 접근을 허용하면 대표 사진을 넣을 수 있어요.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [16, 9],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setCoverImage(result.assets[0].uri);
+    }
+  }, []);
+
   const handleStyleSelect = useCallback((s: StyleOption) => {
     setSelectedStyle(s);
     setGeneratedCourse(null); // reset preview when preference changes
@@ -328,7 +404,7 @@ export function SmartCourseScreen() {
     if (!generatedCourse || isSaving) return;
     setIsSaving(true);
     try {
-      await saveUserCourse(generatedCourse);
+      await saveUserCourse({ ...generatedCourse, imageUrl: coverImage ?? undefined });
       Alert.alert('저장 완료 ✓', '내 코스 목록에 추가되었습니다.', [
         { text: '홈으로', onPress: () => navigation.navigate('Home') },
         {
@@ -342,7 +418,7 @@ export function SmartCourseScreen() {
     } finally {
       setIsSaving(false);
     }
-  }, [generatedCourse, isSaving, navigation]);
+  }, [generatedCourse, coverImage, isSaving, navigation]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -356,7 +432,7 @@ export function SmartCourseScreen() {
           <Text style={styles.backBtnText}>←</Text>
         </TouchableOpacity>
         <View>
-          <Text style={styles.topBarEyebrow}>Smart Course Builder</Text>
+          <Text style={styles.topBarEyebrow}>나만의 전주 코스</Text>
           <Text style={styles.topBarTitle}>스마트 코스 만들기</Text>
         </View>
       </View>
@@ -483,7 +559,12 @@ export function SmartCourseScreen() {
                 <Text style={styles.previewRegen}>다시 생성 ↺</Text>
               </TouchableOpacity>
             </View>
-            <PreviewCard course={generatedCourse} accent={accent} />
+            <PreviewCard
+              course={generatedCourse}
+              accent={accent}
+              coverImage={coverImage}
+              onPickImage={handlePickImage}
+            />
           </>
         )}
 

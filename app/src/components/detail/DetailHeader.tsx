@@ -1,6 +1,7 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ImageBackground, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import type { Course } from '../../types/course';
+import { getCourseImage } from '../../data/courseImages';
 import { formatAverageRating, formatCompletionRate } from '../../utils/courseMetrics';
 
 const THEME_ACCENT: Record<string, string> = {
@@ -21,9 +22,11 @@ interface Props {
 
 export function DetailHeader({ course, onBack }: Props) {
   const accent = THEME_ACCENT[course.theme] ?? '#0f8b6d';
+  const imageUrl = getCourseImage(course);
+  const hasActivity = course.performers > 0;
 
-  return (
-    <View style={[styles.container, { backgroundColor: accent }]}>
+  const inner = (
+    <View style={[styles.inner, imageUrl ? styles.innerDim : null]}>
       <TouchableOpacity style={styles.backButton} onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
         <Text style={styles.backIcon}>←</Text>
       </TouchableOpacity>
@@ -41,31 +44,50 @@ export function DetailHeader({ course, onBack }: Props) {
         <Text style={styles.distance}>{course.distance} · 장소 {course.spotCount}곳</Text>
       </View>
 
-      <View style={styles.statsRow}>
-        <View style={styles.stat}>
-          <Text style={styles.statValue}>{course.performers}명</Text>
-          <Text style={styles.statLabel}>수행자</Text>
+      {/* 수행 데이터가 쌓인 코스만 지표 노출 */}
+      {hasActivity && (
+        <View style={styles.statsRow}>
+          <View style={styles.stat}>
+            <Text style={styles.statValue}>{course.performers}명</Text>
+            <Text style={styles.statLabel}>수행자</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.stat}>
+            <Text style={styles.statValue}>★ {formatAverageRating(course)}</Text>
+            <Text style={styles.statLabel}>평균 평점</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.stat}>
+            <Text style={styles.statValue}>{formatCompletionRate(course)}</Text>
+            <Text style={styles.statLabel}>완주율</Text>
+          </View>
         </View>
-        <View style={styles.statDivider} />
-        <View style={styles.stat}>
-          <Text style={styles.statValue}>★ {formatAverageRating(course)}</Text>
-          <Text style={styles.statLabel}>평균 평점</Text>
-        </View>
-        <View style={styles.statDivider} />
-        <View style={styles.stat}>
-          <Text style={styles.statValue}>{formatCompletionRate(course)}</Text>
-          <Text style={styles.statLabel}>완주율</Text>
-        </View>
-      </View>
+      )}
     </View>
   );
+
+  if (imageUrl) {
+    return (
+      <ImageBackground source={{ uri: imageUrl }} style={styles.container} resizeMode="cover">
+        {inner}
+      </ImageBackground>
+    );
+  }
+
+  return <View style={[styles.container, { backgroundColor: accent }]}>{inner}</View>;
 }
 
 const styles = StyleSheet.create({
   container: {
+    backgroundColor: '#1f2937',
+  },
+  inner: {
     paddingTop: 56,
     paddingBottom: 20,
     paddingHorizontal: 20,
+  },
+  innerDim: {
+    backgroundColor: 'rgba(15,23,42,0.45)',
   },
   backButton: {
     position: 'absolute',
@@ -88,7 +110,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   badge: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(15,23,42,0.4)',
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -106,12 +128,12 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   distance: {
-    color: 'rgba(255,255,255,0.75)',
+    color: 'rgba(255,255,255,0.85)',
     fontSize: 13,
   },
   statsRow: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(0,0,0,0.15)',
+    backgroundColor: 'rgba(0,0,0,0.3)',
     borderRadius: 12,
     paddingVertical: 12,
   },

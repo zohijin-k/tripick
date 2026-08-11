@@ -1,8 +1,8 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ImageBackground, StyleSheet, Text, View } from 'react-native';
 import type { Course } from '../types/course';
 import { calculateTripickScore } from '../utils/score';
-import { calculateTrustScore } from '../utils/trustScore';
+import { getCourseImage } from '../data/courseImages';
 import { formatAverageRating, formatCompletionRate, isVerifiedCourse } from '../utils/courseMetrics';
 
 const THEME_ACCENT: Record<string, string> = {
@@ -23,74 +23,72 @@ interface Props {
 
 export function CourseCard({ course, rank }: Props) {
   const { totalScore } = calculateTripickScore(course);
-  const { score: trustScore } = calculateTrustScore(course);
   const accent = THEME_ACCENT[course.theme] ?? '#0f8b6d';
   const verified = isVerifiedCourse(course);
+  const imageUrl = getCourseImage(course);
+
+  const headerContent = (
+    <View style={styles.overlay}>
+      <View style={styles.badgeRow}>
+        <View style={[styles.badge, verified && styles.badgeStrong]}>
+          <Text style={styles.badgeText}>{verified ? `TOP ${rank}` : '신규'}</Text>
+        </View>
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>{course.theme}</Text>
+        </View>
+      </View>
+      <View>
+        <Text style={styles.headerTitle} numberOfLines={1}>{course.title}</Text>
+        <Text style={styles.headerMeta}>
+          {course.area} · {course.distance} · {course.spotCount}곳
+        </Text>
+      </View>
+    </View>
+  );
 
   return (
     <View style={styles.card}>
-      {/* Colored header band */}
-      <View style={[styles.header, { backgroundColor: accent }]}>
-        <View style={styles.rankBadge}>
-          <Text style={styles.rankText}>{verified ? `TOP ${rank}` : '신규'}</Text>
-        </View>
-        <View style={styles.themeBadge}>
-          <Text style={styles.themeText}>{course.theme}</Text>
-        </View>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {course.title}
-        </Text>
-      </View>
+      {/* Photo header (colored fallback when no image) */}
+      {imageUrl ? (
+        <ImageBackground source={{ uri: imageUrl }} style={styles.header} resizeMode="cover">
+          {headerContent}
+        </ImageBackground>
+      ) : (
+        <View style={[styles.header, { backgroundColor: accent }]}>{headerContent}</View>
+      )}
 
-      {/* Body */}
-      <View style={styles.body}>
-        {/* Title row */}
-        <View style={styles.titleRow}>
-          <View style={styles.titleBlock}>
-            <Text style={styles.title} numberOfLines={1}>
-              {course.title}
-            </Text>
-            <Text style={styles.meta}>
-              {course.area} · {course.theme} · {course.distance}
-            </Text>
-          </View>
-          <View style={styles.scoreBlock}>
-            <Text style={styles.scoreLabel}>TRIPICK</Text>
-            <Text style={styles.scoreValue}>{course.performers > 0 ? totalScore : '-'}</Text>
-            <View style={[styles.trustBadge, { borderColor: accent }]}>
-              <Text style={[styles.trustText, { color: accent }]}>
-                신뢰도 {trustScore}
-              </Text>
+      {/* Body — 검증된 코스만 지표 노출 */}
+      {verified ? (
+        <View style={styles.body}>
+          <View style={styles.metrics}>
+            <View style={styles.metric}>
+              <Text style={styles.metricValue}>{totalScore}</Text>
+              <Text style={styles.metricLabel}>TRIPICK</Text>
+            </View>
+            <View style={styles.metricSep} />
+            <View style={styles.metric}>
+              <Text style={styles.metricValue}>{formatCompletionRate(course)}</Text>
+              <Text style={styles.metricLabel}>완주율</Text>
+            </View>
+            <View style={styles.metricSep} />
+            <View style={styles.metric}>
+              <Text style={styles.metricValue}>{formatAverageRating(course)}</Text>
+              <Text style={styles.metricLabel}>만족도</Text>
+            </View>
+            <View style={styles.metricSep} />
+            <View style={styles.metric}>
+              <Text style={styles.metricValue}>{course.performers}명</Text>
+              <Text style={styles.metricLabel}>수행자</Text>
             </View>
           </View>
         </View>
-
-        {/* Divider */}
-        <View style={styles.divider} />
-
-        {/* Metric grid */}
-        <View style={styles.metrics}>
-          <View style={styles.metric}>
-            <Text style={styles.metricValue}>{formatCompletionRate(course)}</Text>
-            <Text style={styles.metricLabel}>완주율</Text>
-          </View>
-          <View style={styles.metricSep} />
-          <View style={styles.metric}>
-            <Text style={styles.metricValue}>{formatAverageRating(course)}</Text>
-            <Text style={styles.metricLabel}>만족도</Text>
-          </View>
-          <View style={styles.metricSep} />
-          <View style={styles.metric}>
-            <Text style={styles.metricValue}>{course.performers}명</Text>
-            <Text style={styles.metricLabel}>수행자</Text>
-          </View>
-          <View style={styles.metricSep} />
-          <View style={styles.metric}>
-            <Text style={styles.metricValue}>{course.spotCount}곳</Text>
-            <Text style={styles.metricLabel}>지점 수</Text>
-          </View>
+      ) : (
+        <View style={styles.body}>
+          <Text style={styles.freshNote}>
+            아직 아무도 걷지 않은 코스예요 · 첫 수행자가 되어보세요
+          </Text>
         </View>
-      </View>
+      )}
     </View>
   );
 }
@@ -110,95 +108,43 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   header: {
-    height: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    gap: 8,
+    height: 148,
+    backgroundColor: '#1f2937',
   },
-  rankBadge: {
-    backgroundColor: 'rgba(255,255,255,0.22)',
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15,23,42,0.34)',
+    padding: 14,
+    justifyContent: 'space-between',
+  },
+  badgeRow: { flexDirection: 'row', gap: 6 },
+  badge: {
+    backgroundColor: 'rgba(15,23,42,0.45)',
     borderRadius: 6,
-    paddingHorizontal: 7,
+    paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  rankText: {
+  badgeStrong: { backgroundColor: '#0f8b6d' },
+  badgeText: {
     color: '#ffffff',
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  themeBadge: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-  },
-  themeText: {
-    color: '#ffffff',
-    fontSize: 11,
-    fontWeight: '600',
+    letterSpacing: 0.4,
   },
   headerTitle: {
-    flex: 1,
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'right',
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  headerMeta: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 12,
+    fontWeight: '500',
   },
   body: {
-    padding: 16,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  titleBlock: {
-    flex: 1,
-    marginRight: 12,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#13315c',
-    marginBottom: 4,
-  },
-  meta: {
-    fontSize: 12,
-    color: '#5c6b7a',
-  },
-  scoreBlock: {
-    alignItems: 'flex-end',
-  },
-  scoreLabel: {
-    fontSize: 10,
-    color: '#8a9db0',
-    letterSpacing: 0.5,
-    marginBottom: 1,
-  },
-  scoreValue: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#13315c',
-    lineHeight: 26,
-  },
-  trustBadge: {
-    borderWidth: 1,
-    borderRadius: 5,
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    marginTop: 4,
-  },
-  trustText: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#dce6ec',
-    marginBottom: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   metrics: {
     flexDirection: 'row',
@@ -222,5 +168,9 @@ const styles = StyleSheet.create({
     width: 1,
     height: 28,
     backgroundColor: '#dce6ec',
+  },
+  freshNote: {
+    fontSize: 12,
+    color: '#5c6b7a',
   },
 });

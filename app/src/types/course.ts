@@ -16,6 +16,8 @@ export interface Course {
   area: string;
   theme: string;
   distance: string;
+  /** 코스 대표 사진 (시드 코스: TourAPI 이미지 / 유저 코스: 갤러리에서 선택) */
+  imageUrl?: string;
   spotCount: number;
   completionRate: number;
   averageRating: number;

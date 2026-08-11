@@ -269,7 +269,8 @@ export function CourseDetailScreen() {
         <DetailHeader course={course} onBack={() => navigation.goBack()} />
 
         <View style={styles.body}>
-          <ScoreCard result={tripickScore} hasBehaviorData={course.performers > 0} />
+          {/* 수행 데이터가 쌓인 코스만 점수 카드 노출 */}
+          {course.performers > 0 && <ScoreCard result={tripickScore} hasBehaviorData />}
           <TrustCard result={trustScore} />
 
           {course.recommendationReasons && course.recommendationReasons.length > 0 && (
