@@ -37,4 +37,31 @@ export class TourController {
       );
     }
   }
+
+  @Get('festivals/jeonju')
+  @ApiOperation({ summary: '전주 진행 중·예정 축제/행사 조회 (TourAPI searchFestival2 프록시)' })
+  @ApiOkResponse({
+    description: '정상 조회 결과 (진행 중 우선, 시작일 순, 최대 10개)',
+    schema: { example: { source: 'tourapi', count: 3, festivals: [] } },
+  })
+  @ApiServiceUnavailableResponse({
+    description: 'TourAPI 키 미설정 또는 외부 API 호출 실패',
+    schema: { example: { statusCode: 503, message: 'TourAPI 데이터를 가져올 수 없습니다.' } },
+  })
+  async getJeonjuFestivals() {
+    try {
+      return await this.tourService.getJeonjuFestivals();
+    } catch (err) {
+      if (err instanceof TourApiUnavailableError) {
+        throw new HttpException(
+          { message: 'TourAPI 데이터를 가져올 수 없습니다.' },
+          HttpStatus.SERVICE_UNAVAILABLE,
+        );
+      }
+      throw new HttpException(
+        { message: '축제 데이터를 조회하는 중 오류가 발생했습니다.' },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 }

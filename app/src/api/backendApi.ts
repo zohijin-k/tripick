@@ -111,6 +111,34 @@ export async function fetchJeonjuSpots(): Promise<BackendTourSpot[] | null> {
   return json.spots;
 }
 
+// ─── 전주 축제·행사 (TourAPI searchFestival2 프록시) ─────────────────────────
+
+export interface JeonjuFestival {
+  id: string;
+  title: string;
+  /** YYYYMMDD */
+  startDate: string;
+  /** YYYYMMDD */
+  endDate: string;
+  address: string;
+  imageUrl: string | null;
+  lat: number | null;
+  lng: number | null;
+  isOngoing: boolean;
+}
+
+interface JeonjuFestivalsResponse {
+  source: string;
+  count: number;
+  festivals: JeonjuFestival[];
+}
+
+export async function fetchJeonjuFestivals(): Promise<JeonjuFestival[] | null> {
+  const json = await requestJson<JeonjuFestivalsResponse>('/tour/festivals/jeonju');
+  if (!Array.isArray(json?.festivals)) return null;
+  return json.festivals;
+}
+
 export async function fetchCourses(): Promise<Course[] | null> {
   return requestJson<Course[]>('/courses');
 }

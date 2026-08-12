@@ -18,7 +18,8 @@ import { getCourseImage } from '../data/courseImages';
 import type { Course } from '../types/course';
 import type { RootStackParamList } from '../navigation/types';
 import { getUserCourses } from '../utils/courseStorage';
-import { fetchCourses } from '../api/backendApi';
+import { fetchCourses, fetchJeonjuFestivals } from '../api/backendApi';
+import type { JeonjuFestival } from '../api/backendApi';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import { calculateDistanceMeters } from '../utils/distance';
@@ -202,6 +203,88 @@ function UserCourseCard({ course, onPress }: { course: Course; onPress: () => vo
   );
 }
 
+// ─── FestivalStrip (전주 축제·행사, TourAPI) ──────────────────────────────────
+
+function formatFestivalDate(yyyymmdd: string): string {
+  if (yyyymmdd.length !== 8) return '';
+  return `${parseInt(yyyymmdd.slice(4, 6), 10)}.${parseInt(yyyymmdd.slice(6, 8), 10)}`;
+}
+
+function FestivalStrip({ festivals }: { festivals: JeonjuFestival[] }) {
+  if (festivals.length === 0) return null;
+
+  return (
+    <View style={fsStyles.container}>
+      <View style={fsStyles.header}>
+        <Text style={fsStyles.title}>지금 전주는</Text>
+        <Text style={fsStyles.source}>한국관광공사 TourAPI</Text>
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={fsStyles.strip}>
+        {festivals.map((festival) => (
+          <View key={festival.id} style={fsStyles.card}>
+            {festival.imageUrl ? (
+              <ImageBackground
+                source={{ uri: festival.imageUrl }}
+                style={fsStyles.image}
+                imageStyle={fsStyles.imageRadius}
+                resizeMode="cover"
+              >
+                {festival.isOngoing && (
+                  <View style={fsStyles.liveBadge}>
+                    <Text style={fsStyles.liveBadgeText}>진행 중</Text>
+                  </View>
+                )}
+              </ImageBackground>
+            ) : (
+              <View style={[fsStyles.image, fsStyles.imageFallback]}>
+                <Text style={fsStyles.imageFallbackIcon}>🎪</Text>
+                {festival.isOngoing && (
+                  <View style={fsStyles.liveBadge}>
+                    <Text style={fsStyles.liveBadgeText}>진행 중</Text>
+                  </View>
+                )}
+              </View>
+            )}
+            <Text style={fsStyles.cardTitle} numberOfLines={1}>{festival.title}</Text>
+            <Text style={fsStyles.cardDate}>
+              {formatFestivalDate(festival.startDate)} – {formatFestivalDate(festival.endDate)}
+            </Text>
+          </View>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+const fsStyles = StyleSheet.create({
+  container: { marginBottom: 24 },
+  header: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline',
+    marginBottom: 12,
+  },
+  title: { fontSize: 19, fontWeight: '800', color: '#13315c' },
+  source: { fontSize: 10.5, color: '#8a9db0', fontWeight: '600' },
+  strip: { gap: 12 },
+  card: { width: 168 },
+  image: {
+    width: 168, height: 108, backgroundColor: '#e2e8f0',
+    borderRadius: 14, overflow: 'hidden',
+    padding: 8, alignItems: 'flex-start', justifyContent: 'flex-start',
+    marginBottom: 8,
+  },
+  imageRadius: { borderRadius: 14 },
+  imageFallback: { alignItems: 'center', justifyContent: 'center' },
+  imageFallbackIcon: { fontSize: 30 },
+  liveBadge: {
+    backgroundColor: '#0f8b6d', borderRadius: 999,
+    paddingHorizontal: 8, paddingVertical: 3,
+    position: 'absolute', top: 8, left: 8,
+  },
+  liveBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  cardTitle: { fontSize: 13, fontWeight: '700', color: '#13315c', marginBottom: 2 },
+  cardDate: { fontSize: 11.5, color: '#8a9db0', fontWeight: '500' },
+});
+
 // ─── ScoreInfoSheet (산정식 안내) ─────────────────────────────────────────────
 
 function ScoreInfoSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
@@ -267,6 +350,7 @@ export function HomeScreen() {
   const totalPerformers = allCourses.reduce((s, c) => s + c.performers, 0);
 
   const [userCourses, setUserCourses] = useState<Course[]>([]);
+  const [festivals, setFestivals] = useState<JeonjuFestival[]>([]);
   const [nearbyPrompt, setNearbyPrompt] = useState<{ placeName: string; courses: Course[] } | null>(null);
   const [scoreInfoVisible, setScoreInfoVisible] = useState(false);
   const notifiedPlaceRef = useRef<string | null>(null);
@@ -275,11 +359,14 @@ export function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       let active = true;
-      Promise.all([getUserCourses(), fetchCourses()]).then(([courses, serverCourses]) => {
-        if (!active) return;
-        setUserCourses(courses);
-        if (serverCourses && serverCourses.length > 0) setAllCourses(serverCourses);
-      });
+      Promise.all([getUserCourses(), fetchCourses(), fetchJeonjuFestivals()]).then(
+        ([courses, serverCourses, serverFestivals]) => {
+          if (!active) return;
+          setUserCourses(courses);
+          if (serverCourses && serverCourses.length > 0) setAllCourses(serverCourses);
+          if (serverFestivals) setFestivals(serverFestivals);
+        },
+      );
       return () => { active = false; };
     }, []),
   );
@@ -402,6 +489,9 @@ export function HomeScreen() {
           </View>
           <Text style={styles.smartBannerIcon}>✦</Text>
         </TouchableOpacity>
+
+        {/* ── 전주 축제·행사 (TourAPI) ── */}
+        <FestivalStrip festivals={festivals} />
 
         {/* ── 내가 만든 코스 ── */}
         {userCourses.length > 0 && (

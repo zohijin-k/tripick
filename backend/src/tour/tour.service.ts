@@ -11,6 +11,7 @@ import {
 } from '../config/jeonju.constants';
 import { GetJeonjuSpotsQueryDto } from './dto/get-jeonju-spots-query.dto';
 import type { TourApiRawItem, TourApiResponse, TourSpot } from './interfaces/tour-spot.interface';
+import type { JeonjuFestival, TourApiFestivalRawItem } from './interfaces/festival.interface';
 import { normalizeTourSpot } from './mappers/tour-spot.mapper';
 
 export interface JeonjuSpotsResult {
@@ -19,8 +20,21 @@ export interface JeonjuSpotsResult {
   spots: TourSpot[];
 }
 
+export interface JeonjuFestivalsResult {
+  source: 'tourapi';
+  count: number;
+  festivals: JeonjuFestival[];
+}
+
 /** TourAPI 키 미설정 또는 외부 API 호출 실패를 나타내는 에러. 컨트롤러에서 503으로 변환한다. */
 export class TourApiUnavailableError extends Error {}
+
+function formatYyyymmdd(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}${m}${d}`;
+}
 
 @Injectable()
 export class TourService {
@@ -69,6 +83,79 @@ export class TourService {
     }
 
     return { source: 'tourapi', count: spots.length, spots };
+  }
+
+  /**
+   * 전주에서 진행 중이거나 예정인 축제·행사 조회 (TourAPI searchFestival2).
+   * 최근 60일 내 시작한 행사까지 조회한 뒤, 아직 끝나지 않은 것만 남긴다.
+   */
+  async getJeonjuFestivals(): Promise<JeonjuFestivalsResult> {
+    const apiKey = this.configService.get<string>('tourApi.key');
+    if (!apiKey) {
+      throw new TourApiUnavailableError('TOUR_API_KEY가 설정되지 않았습니다.');
+    }
+
+    const baseUrl = this.configService.get<string>('tourApi.baseUrl');
+    const today = formatYyyymmdd(new Date());
+    const from = formatYyyymmdd(new Date(Date.now() - 60 * 24 * 60 * 60 * 1000));
+
+    const params = {
+      numOfRows: 50,
+      pageNo: 1,
+      MobileOS: 'ETC',
+      MobileApp: 'TRIPICK',
+      _type: 'json',
+      areaCode: JEONJU_AREA_CODE,
+      sigunguCode: JEONJU_SIGUNGU_CODE,
+      eventStartDate: from,
+      serviceKey: apiKey,
+    };
+
+    let response;
+    try {
+      response = await firstValueFrom(
+        this.httpService.get<TourApiResponse<TourApiFestivalRawItem>>(`${baseUrl}/searchFestival2`, { params }),
+      );
+    } catch {
+      this.logger.error('TourAPI 축제 조회 실패');
+      throw new TourApiUnavailableError('TourAPI 축제 조회에 실패했습니다.');
+    }
+
+    const header = response.data?.response?.header;
+    if (!header || header.resultCode !== '0000') {
+      throw new TourApiUnavailableError(`TourAPI 축제 오류 응답 (resultCode=${header?.resultCode ?? 'unknown'})`);
+    }
+
+    const rawItems = response.data?.response?.body?.items?.item;
+    const items: TourApiFestivalRawItem[] = !rawItems ? [] : Array.isArray(rawItems) ? [rawItems].flat() : [rawItems];
+
+    const festivals: JeonjuFestival[] = items
+      .filter((item) => item?.contentid && item.title && item.eventenddate && item.eventenddate >= today)
+      .map((item) => {
+        const lat = parseFloat(item.mapy ?? '');
+        const lng = parseFloat(item.mapx ?? '');
+        const startDate = item.eventstartdate ?? '';
+        const endDate = item.eventenddate ?? '';
+        return {
+          id: String(item.contentid),
+          title: item.title!.trim(),
+          startDate,
+          endDate,
+          address: item.addr1?.trim() ?? '',
+          imageUrl: item.firstimage || item.firstimage2 || null,
+          lat: Number.isNaN(lat) ? null : lat,
+          lng: Number.isNaN(lng) ? null : lng,
+          isOngoing: startDate <= today && today <= endDate,
+        };
+      })
+      .sort((a, b) => {
+        // 진행 중 우선, 그다음 시작일 순
+        if (a.isOngoing !== b.isOngoing) return a.isOngoing ? -1 : 1;
+        return a.startDate.localeCompare(b.startDate);
+      })
+      .slice(0, 10);
+
+    return { source: 'tourapi', count: festivals.length, festivals };
   }
 
   private async fetchAreaList(
