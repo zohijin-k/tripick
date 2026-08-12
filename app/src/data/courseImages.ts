@@ -6,9 +6,9 @@ import type { Course } from '../types/course';
  * 유저가 직접 만든 코스는 course.imageUrl(갤러리에서 선택)이 우선한다.
  */
 const SEED_COURSE_IMAGES: Record<string, string> = {
-  // 오목대와 이목대 (야경 산책로의 대표 지점)
+  // 전주 야경 (팀 큐레이션 이미지 — 레포 호스팅)
   'jeonju-night-walk':
-    'https://tong.visitkorea.or.kr/cms/resource/46/3533046_image2_1.jpg',
+    'https://raw.githubusercontent.com/zohijin-k/tripick/main/docs/course-images/night.jpg',
   // 객사길
   'gaekridan-cafe':
     'https://tong.visitkorea.or.kr/cms/resource/59/3351559_image2_1.jpg',
@@ -21,9 +21,9 @@ const SEED_COURSE_IMAGES: Record<string, string> = {
   // 전주 남부시장
   'nambu-market-youth':
     'https://tong.visitkorea.or.kr/cms/resource/35/3428535_image2_1.jpg',
-  // 아중호수 (덕진공원 이미지가 TourAPI에 없어 임시 — 추후 교체)
+  // 덕진공원 연화정 야경 (팀 큐레이션 이미지 — 레포 호스팅)
   'deokjin-lake':
-    'https://tong.visitkorea.or.kr/cms/resource/54/3442254_image2_1.jpg',
+    'https://raw.githubusercontent.com/zohijin-k/tripick/main/docs/course-images/deokjin.jpg',
 };
 
 /** 서버 시드 데이터는 id가 다를 수 있어 제목 키워드로도 매칭한다. */

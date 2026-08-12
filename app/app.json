@@ -26,7 +26,10 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#106744"
       },
-      "permissions": ["android.permission.ACCESS_FINE_LOCATION"]
+      "permissions": [
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ]
     },
     "plugins": [
       [
@@ -36,6 +39,11 @@
         }
       ],
       "expo-notifications"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "beeb5327-2303-44a5-af33-5a9863e3b64d"
+      }
+    }
   }
 }
