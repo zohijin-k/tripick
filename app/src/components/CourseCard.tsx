@@ -1,5 +1,6 @@
 import React from 'react';
 import { ImageBackground, StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { Course } from '../types/course';
 import { calculateTripickScore } from '../utils/score';
 import { getCourseImage } from '../data/courseImages';
@@ -27,14 +28,18 @@ export function CourseCard({ course, rank }: Props) {
   const verified = isVerifiedCourse(course);
   const imageUrl = getCourseImage(course);
 
-  const headerContent = (
-    <View style={styles.overlay}>
+  const overlay = (
+    <LinearGradient
+      colors={['rgba(15,23,42,0.30)', 'rgba(15,23,42,0.02)', 'rgba(15,23,42,0.72)']}
+      locations={[0, 0.42, 1]}
+      style={styles.overlay}
+    >
       <View style={styles.badgeRow}>
-        <View style={[styles.badge, verified && styles.badgeStrong]}>
-          <Text style={styles.badgeText}>{verified ? `TOP ${rank}` : '신규'}</Text>
+        <View style={[styles.pill, verified && styles.pillStrong]}>
+          <Text style={styles.pillText}>{verified ? `TOP ${rank}` : '신규'}</Text>
         </View>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{course.theme}</Text>
+        <View style={styles.pill}>
+          <Text style={styles.pillText}>{course.theme}</Text>
         </View>
       </View>
       <View>
@@ -43,22 +48,22 @@ export function CourseCard({ course, rank }: Props) {
           {course.area} · {course.distance} · {course.spotCount}곳
         </Text>
       </View>
-    </View>
+    </LinearGradient>
   );
 
   return (
     <View style={styles.card}>
-      {/* Photo header (colored fallback when no image) */}
+      {/* Photo (colored fallback when no image) */}
       {imageUrl ? (
-        <ImageBackground source={{ uri: imageUrl }} style={styles.header} resizeMode="cover">
-          {headerContent}
+        <ImageBackground source={{ uri: imageUrl }} style={styles.image} resizeMode="cover">
+          {overlay}
         </ImageBackground>
       ) : (
-        <View style={[styles.header, { backgroundColor: accent }]}>{headerContent}</View>
+        <View style={[styles.image, { backgroundColor: accent }]}>{overlay}</View>
       )}
 
-      {/* Body — 검증된 코스만 지표 노출 */}
-      {verified ? (
+      {/* 검증된 코스만 지표 노출 */}
+      {verified && (
         <View style={styles.body}>
           <View style={styles.metrics}>
             <View style={styles.metric}>
@@ -82,12 +87,6 @@ export function CourseCard({ course, rank }: Props) {
             </View>
           </View>
         </View>
-      ) : (
-        <View style={styles.body}>
-          <Text style={styles.freshNote}>
-            아직 아무도 걷지 않은 코스예요 · 첫 수행자가 되어보세요
-          </Text>
-        </View>
       )}
     </View>
   );
@@ -96,50 +95,49 @@ export function CourseCard({ course, rank }: Props) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#ffffff',
-    borderRadius: 16,
-    marginBottom: 14,
+    borderRadius: 20,
+    marginBottom: 16,
     overflow: 'hidden',
     // iOS shadow
     shadowColor: '#13315c',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
     // Android shadow
-    elevation: 3,
+    elevation: 4,
   },
-  header: {
-    height: 148,
+  image: {
+    height: 208,
     backgroundColor: '#1f2937',
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(15,23,42,0.34)',
-    padding: 14,
+    padding: 16,
     justifyContent: 'space-between',
   },
   badgeRow: { flexDirection: 'row', gap: 6 },
-  badge: {
-    backgroundColor: 'rgba(15,23,42,0.45)',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+  pill: {
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
   },
-  badgeStrong: { backgroundColor: '#0f8b6d' },
-  badgeText: {
+  pillStrong: { backgroundColor: '#0f8b6d' },
+  pillText: {
     color: '#ffffff',
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 0.4,
+    letterSpacing: 0.3,
   },
   headerTitle: {
     color: '#ffffff',
-    fontSize: 18,
+    fontSize: 19,
     fontWeight: '800',
-    marginBottom: 2,
+    marginBottom: 3,
   },
   headerMeta: {
-    color: 'rgba(255,255,255,0.85)',
-    fontSize: 12,
+    color: 'rgba(255,255,255,0.88)',
+    fontSize: 12.5,
     fontWeight: '500',
   },
   body: {
@@ -168,9 +166,5 @@ const styles = StyleSheet.create({
     width: 1,
     height: 28,
     backgroundColor: '#dce6ec',
-  },
-  freshNote: {
-    fontSize: 12,
-    color: '#5c6b7a',
   },
 });

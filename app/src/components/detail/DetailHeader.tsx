@@ -1,5 +1,6 @@
 import React from 'react';
 import { ImageBackground, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { Course } from '../../types/course';
 import { getCourseImage } from '../../data/courseImages';
 import { formatAverageRating, formatCompletionRate } from '../../utils/courseMetrics';
@@ -25,8 +26,8 @@ export function DetailHeader({ course, onBack }: Props) {
   const imageUrl = getCourseImage(course);
   const hasActivity = course.performers > 0;
 
-  const inner = (
-    <View style={[styles.inner, imageUrl ? styles.innerDim : null]}>
+  const innerContent = (
+    <>
       <TouchableOpacity style={styles.backButton} onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
         <Text style={styles.backIcon}>←</Text>
       </TouchableOpacity>
@@ -63,18 +64,28 @@ export function DetailHeader({ course, onBack }: Props) {
           </View>
         </View>
       )}
-    </View>
+    </>
   );
 
   if (imageUrl) {
     return (
       <ImageBackground source={{ uri: imageUrl }} style={styles.container} resizeMode="cover">
-        {inner}
+        <LinearGradient
+          colors={['rgba(15,23,42,0.55)', 'rgba(15,23,42,0.15)', 'rgba(15,23,42,0.62)']}
+          locations={[0, 0.45, 1]}
+          style={styles.inner}
+        >
+          {innerContent}
+        </LinearGradient>
       </ImageBackground>
     );
   }
 
-  return <View style={[styles.container, { backgroundColor: accent }]}>{inner}</View>;
+  return (
+    <View style={[styles.container, { backgroundColor: accent }]}>
+      <View style={styles.inner}>{innerContent}</View>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -85,9 +96,6 @@ const styles = StyleSheet.create({
     paddingTop: 56,
     paddingBottom: 20,
     paddingHorizontal: 20,
-  },
-  innerDim: {
-    backgroundColor: 'rgba(15,23,42,0.45)',
   },
   backButton: {
     position: 'absolute',
