@@ -5,6 +5,8 @@ import type { TripickScoreResult } from '../../types/course';
 interface Props {
   result: TripickScoreResult;
   hasBehaviorData?: boolean;
+  /** 한옥마을 외 지역 코스 +20% 분산 가중치 적용 여부 */
+  dispersionBoosted?: boolean;
 }
 
 function ScoreBar({ value, max = 100, color }: { value: number; max?: number; color: string }) {
@@ -29,7 +31,7 @@ const barStyles = StyleSheet.create({
   },
 });
 
-export function ScoreCard({ result, hasBehaviorData = true }: Props) {
+export function ScoreCard({ result, hasBehaviorData = true, dispersionBoosted = false }: Props) {
   const { totalScore, performerScore, ratingScore } = result;
 
   return (
@@ -43,6 +45,11 @@ export function ScoreCard({ result, hasBehaviorData = true }: Props) {
           ? '완주율 × 50% + 만족도 × 30% + 수행자 수 × 20%'
           : '첫 수행 데이터가 쌓이면 점수가 계산됩니다.'}
       </Text>
+      {hasBehaviorData && dispersionBoosted && (
+        <View style={styles.boostNote}>
+          <Text style={styles.boostNoteText}>🌱 한옥마을 외 지역 코스 · 분산 가중치 +20% 적용</Text>
+        </View>
+      )}
 
       {hasBehaviorData && <View style={styles.items}>
         <View style={styles.item}>
@@ -99,6 +106,19 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#5c6b7a',
     marginBottom: 16,
+  },
+  boostNote: {
+    backgroundColor: '#e8f5f1',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    marginTop: -8,
+    marginBottom: 14,
+  },
+  boostNoteText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#0b5f4b',
   },
   items: {
     gap: 12,

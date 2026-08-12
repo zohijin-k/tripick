@@ -53,6 +53,10 @@ const THEME_ACCENT: Record<string, string> = {
 
 const GPS_RADIUS_M = 50;
 
+// GPS 스푸핑 탐지: 사람이 낼 수 없는 이동 속도(40m/s ≈ 144km/h) 초과 시
+// 위치 조작으로 간주하고 자동 체크인을 일시 보류한다.
+const MAX_HUMAN_SPEED_MPS = 40;
+
 type LocationPermission = 'undetermined' | 'granted' | 'denied';
 type SpotStatus = 'visited' | 'current' | 'upcoming';
 
@@ -436,6 +440,13 @@ export function TraceScreen() {
   const [checkInNotice, setCheckInNotice] = useState<string | null>(null);
   const checkingSpotIdRef = useRef<string | null>(null);
 
+  // ── 스푸핑 탐지 state ──────────────────────────────────────────────────────
+  const lastFixRef = useRef<{ lat: number; lng: number; t: number } | null>(null);
+  const [spoofSuspected, setSpoofSuspected] = useState(false);
+
+  // ── 체험 모드 (심사·시연용: GPS 없이 가상 수행) ────────────────────────────
+  const [demoMode, setDemoMode] = useState(false);
+
   // ── Review state ───────────────────────────────────────────────────────────
   const [showReviewModal, setShowReviewModal] = useState(false);
 
@@ -478,8 +489,12 @@ export function TraceScreen() {
   }, [userLocation, currentSpot]);
 
   const canGpsCheckIn = useMemo(
-    () => !!userLocation && !!currentSpot && isWithinRadius(userLocation, currentSpot, GPS_RADIUS_M),
-    [userLocation, currentSpot],
+    () =>
+      !!userLocation &&
+      !!currentSpot &&
+      !spoofSuspected &&
+      isWithinRadius(userLocation, currentSpot, GPS_RADIUS_M),
+    [userLocation, currentSpot, spoofSuspected],
   );
 
   // ── Load progress from AsyncStorage on mount ───────────────────────────────
@@ -534,6 +549,40 @@ export function TraceScreen() {
     checkingSpotIdRef.current = null;
   }, [currentSpot?.id]);
 
+  // ── 체험 모드: 버튼으로 가상 체크인 (서버에는 isManual로 구분 기록) ────────
+  const handleDemoCheckIn = useCallback(async () => {
+    if (!currentSpot) return;
+    const virtualLocation =
+      currentSpot.lat != null && currentSpot.lng != null
+        ? { lat: currentSpot.lat, lng: currentSpot.lng }
+        : null;
+    if (virtualLocation) setUserLocation(virtualLocation);
+    const serverVisitedIds = await saveSpotCheckIn({
+      courseId,
+      spotId: currentSpot.id,
+      userLocation: virtualLocation,
+      isManual: true,
+    });
+    if (serverVisitedIds) {
+      setVisitedSpotIds(serverVisitedIds);
+    } else {
+      setVisitedSpotIds((prev) => (prev.includes(currentSpot.id) ? prev : [...prev, currentSpot.id]));
+    }
+    setCheckInNotice(`${currentSpot.name} 도착 (체험) · 체크인 완료`);
+    setTimeout(() => setCheckInNotice(null), 2500);
+  }, [courseId, currentSpot]);
+
+  const handleDemoModeStart = useCallback(() => {
+    Alert.alert(
+      '체험 모드',
+      '전주에 있지 않아도 코스 수행 과정을 체험할 수 있어요.\n체험 체크인은 실제 GPS 기록과 구분되어 저장됩니다.',
+      [
+        { text: '취소', style: 'cancel' },
+        { text: '시작하기', onPress: () => setDemoMode(true) },
+      ],
+    );
+  }, []);
+
   useEffect(() => {
     let subscription: Location.LocationSubscription | null = null;
     let active = true;
@@ -550,7 +599,22 @@ export function TraceScreen() {
       setLocationPermission('granted');
       subscription = await Location.watchPositionAsync(
         { accuracy: Location.Accuracy.High, distanceInterval: 3, timeInterval: 2000 },
-        (location) => setUserLocation({ lat: location.coords.latitude, lng: location.coords.longitude }),
+        (location) => {
+          const fix = {
+            lat: location.coords.latitude,
+            lng: location.coords.longitude,
+            t: location.timestamp,
+          };
+          // 스푸핑 탐지: 직전 위치 대비 이동 속도 계산
+          const prev = lastFixRef.current;
+          if (prev && fix.t > prev.t) {
+            const dist = calculateDistanceMeters(prev.lat, prev.lng, fix.lat, fix.lng) ?? 0;
+            const seconds = Math.max(0.5, (fix.t - prev.t) / 1000);
+            setSpoofSuspected(dist / seconds > MAX_HUMAN_SPEED_MPS);
+          }
+          lastFixRef.current = fix;
+          setUserLocation({ lat: fix.lat, lng: fix.lng });
+        },
       );
     })().catch(() => setLocationPermission('denied'));
     return () => { active = false; subscription?.remove(); };
@@ -561,10 +625,11 @@ export function TraceScreen() {
   }, [canGpsCheckIn, markCurrentSpotVisited]);
 
   const handleReviewSubmit = useCallback(async (rating: number, comment: string) => {
-    await saveReview({ courseId, rating, comment });
+    // 리뷰 작성 시점 완주율을 함께 저장 → 70% 미만 리뷰는 가중치 1/3로 반영
+    await saveReview({ courseId, rating, comment, completionRate: progressPct });
     setShowReviewModal(false);
     Alert.alert('리뷰 저장 완료 🎉', '소중한 후기를 남겨 주셔서 감사합니다!');
-  }, [courseId]);
+  }, [courseId, progressPct]);
 
   const handleReset = useCallback(() => {
     Alert.alert(
@@ -619,6 +684,11 @@ export function TraceScreen() {
           <Text style={styles.backBtnText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.topBarTitle} numberOfLines={1}>코스 수행 중</Text>
+        {demoMode && (
+          <View style={styles.demoBadge}>
+            <Text style={styles.demoBadgeText}>체험 모드</Text>
+          </View>
+        )}
         <Text style={styles.topBarProgress}>{visitedCount}/{totalCount}</Text>
       </View>
 
@@ -671,14 +741,33 @@ export function TraceScreen() {
           })}
         </View>
 
-        <GpsCard
-          permission={locationPermission}
-          userLocation={userLocation}
-          distanceM={distanceToCurrentSpot}
-          canCheckIn={canGpsCheckIn}
-          hasSpotCoords={hasSpotCoords}
-          accent={accent}
-        />
+        {!demoMode && (
+          <GpsCard
+            permission={locationPermission}
+            userLocation={userLocation}
+            distanceM={distanceToCurrentSpot}
+            canCheckIn={canGpsCheckIn}
+            hasSpotCoords={hasSpotCoords}
+            accent={accent}
+          />
+        )}
+
+        {!demoMode && spoofSuspected && (
+          <View style={styles.spoofNotice}>
+            <Text style={styles.spoofNoticeIcon}>⚠️</Text>
+            <Text style={styles.spoofNoticeText}>
+              비정상적인 이동 속도가 감지되어 자동 체크인을 잠시 보류했어요.
+            </Text>
+          </View>
+        )}
+
+        {!demoMode && !isCompleted && (
+          <TouchableOpacity style={styles.demoEntry} onPress={handleDemoModeStart} activeOpacity={0.8}>
+            <Text style={styles.demoEntryText}>
+              지금 전주에 없다면? <Text style={styles.demoEntryStrong}>체험 모드로 둘러보기 →</Text>
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {checkInNotice && (
           <View style={styles.checkInNotice}>
@@ -702,6 +791,22 @@ export function TraceScreen() {
         <View style={styles.bottomBar}>
           <TouchableOpacity style={styles.doneBtn} onPress={() => navigation.navigate('Home')}>
             <Text style={styles.doneBtnText}>홈으로 돌아가기</Text>
+          </TouchableOpacity>
+        </View>
+      ) : demoMode ? (
+        <View style={styles.bottomBar}>
+          <TouchableOpacity
+            style={[styles.demoCheckInBtn, { backgroundColor: accent }]}
+            onPress={handleDemoCheckIn}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.demoCheckInLabel}>체험 모드 · 가상 이동</Text>
+            <Text style={styles.demoCheckInText} numberOfLines={1}>
+              {currentSpot?.name ?? '다음 지점'} 도착하기
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.demoExitBtn} onPress={() => setDemoMode(false)}>
+            <Text style={styles.demoExitText}>체험 모드 종료</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -792,4 +897,31 @@ const styles = StyleSheet.create({
   notFound: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
   notFoundText: { fontSize: 16, color: '#5c6b7a' },
   backLink: { fontSize: 14, color: '#0f8b6d', fontWeight: '600' },
+
+  // ── 체험 모드 ──
+  demoBadge: {
+    backgroundColor: 'rgba(255,255,255,0.25)', borderRadius: 999,
+    paddingHorizontal: 8, paddingVertical: 3,
+  },
+  demoBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800', letterSpacing: 0.3 },
+  demoEntry: { alignItems: 'center', paddingVertical: 4, marginBottom: 8 },
+  demoEntryText: { fontSize: 12.5, color: '#8a9db0' },
+  demoEntryStrong: { color: '#0f8b6d', fontWeight: '700' },
+  demoCheckInBtn: { borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
+  demoCheckInLabel: {
+    color: 'rgba(255,255,255,0.8)', fontSize: 10,
+    fontWeight: '700', letterSpacing: 0.5, marginBottom: 2,
+  },
+  demoCheckInText: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  demoExitBtn: { alignItems: 'center', paddingVertical: 6 },
+  demoExitText: { fontSize: 12, color: '#94a3b8', textDecorationLine: 'underline' },
+
+  // ── 스푸핑 경고 ──
+  spoofNotice: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#fffbeb', borderWidth: 1, borderColor: '#fde68a',
+    borderRadius: 8, padding: 14, marginBottom: 12,
+  },
+  spoofNoticeIcon: { fontSize: 16 },
+  spoofNoticeText: { flex: 1, color: '#92400e', fontSize: 12.5, fontWeight: '600', lineHeight: 18 },
 });
