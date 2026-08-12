@@ -4,8 +4,14 @@
     "slug": "tripick",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#106744"
+    },
     "ios": {
       "supportsTablets": false,
       "bundleIdentifier": "com.tripick.app",
@@ -15,6 +21,11 @@
     },
     "android": {
       "package": "com.tripick.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#106744"
+      },
       "permissions": ["android.permission.ACCESS_FINE_LOCATION"]
     },
     "plugins": [
