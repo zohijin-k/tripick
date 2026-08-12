@@ -97,16 +97,18 @@ export class TourService {
 
     const baseUrl = this.configService.get<string>('tourApi.baseUrl');
     const today = formatYyyymmdd(new Date());
-    const from = formatYyyymmdd(new Date(Date.now() - 60 * 24 * 60 * 60 * 1000));
+    // 장기 진행 행사도 포함되도록 6개월 전 시작 행사까지 조회
+    const from = formatYyyymmdd(new Date(Date.now() - 180 * 24 * 60 * 60 * 1000));
 
+    // 시군구 코드로 좁히면 등록 코드가 다른 축제가 누락될 수 있어
+    // 전북 전체로 조회한 뒤 주소·제목으로 '전주'를 필터링한다.
     const params = {
-      numOfRows: 50,
+      numOfRows: 100,
       pageNo: 1,
       MobileOS: 'ETC',
       MobileApp: 'TRIPICK',
       _type: 'json',
       areaCode: JEONJU_AREA_CODE,
-      sigunguCode: JEONJU_SIGUNGU_CODE,
       eventStartDate: from,
       serviceKey: apiKey,
     };
@@ -131,6 +133,7 @@ export class TourService {
 
     const festivals: JeonjuFestival[] = items
       .filter((item) => item?.contentid && item.title && item.eventenddate && item.eventenddate >= today)
+      .filter((item) => (item.addr1 ?? '').includes('전주') || (item.title ?? '').includes('전주'))
       .map((item) => {
         const lat = parseFloat(item.mapy ?? '');
         const lng = parseFloat(item.mapx ?? '');
