@@ -4,6 +4,12 @@ import { CheckInDto, CreateCourseDto, CreateReviewDto } from './dto/course.dto';
 
 type CourseWithData = Awaited<ReturnType<CoursesService['loadCourse']>>;
 
+const REVIEW_FULL_WEIGHT_COMPLETION = 70;
+const MAX_HUMAN_SPEED_KMH = 144;
+const HANOK_CENTER = { lat: 35.8146, lng: 127.1523 };
+const HANOK_CORE_RADIUS_M = 600;
+const DISPERSION_BOOST = 1.2;
+
 @Injectable()
 export class CoursesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -137,12 +143,22 @@ export class CoursesService {
   }
 
   async createReview(courseId: string, userId: string, dto: CreateReviewDto) {
-    await this.assertCourse(courseId);
+    const course = await this.loadCourse(courseId);
+    if (!course) throw new NotFoundException('Course not found.');
     const trace = await this.prisma.traceSession.findUnique({
       where: { courseId_userId: { courseId, userId } },
+      include: { checkIns: true },
     });
-    const completionRate = trace?.completionRate ?? 0;
-    const weight = completionRate >= 100 ? 1 : 1 / 3;
+    const verifiedSpotCount = new Set(
+      trace?.checkIns.filter((checkIn) => !checkIn.isManual).map((checkIn) => checkIn.spotId) ?? [],
+    ).size;
+    const isDemoOnly = Boolean(trace?.checkIns.length) && verifiedSpotCount === 0;
+    const completionRate = course.spots.length > 0
+      ? Math.round((verifiedSpotCount / course.spots.length) * 100)
+      : 0;
+    const weight = isDemoOnly
+      ? 0
+      : completionRate >= REVIEW_FULL_WEIGHT_COMPLETION ? 1 : 1 / 3;
     return this.prisma.review.upsert({
       where: { courseId_userId: { courseId, userId } },
       update: {
@@ -174,28 +190,30 @@ export class CoursesService {
     const spot = course.spots.find((item) => item.id === dto.spotId || item.sourceSpotId === dto.spotId);
     if (!spot) throw new NotFoundException('체크인할 장소를 찾을 수 없습니다.');
 
-    if (dto.isManual) {
-      throw new BadRequestException('수동 체크인은 지원하지 않습니다. 목적지 50m 이내에서 자동 체크인됩니다.');
-    }
-    const isManual = false;
+    const isManual = dto.isManual === true;
     if (spot.lat == null || spot.lng == null) {
       throw new BadRequestException('목적지 좌표가 없어 GPS 체크인을 검증할 수 없습니다.');
     }
     const distanceMeters = this.distanceMeters(dto.lat, dto.lng, spot.lat, spot.lng);
-    if (distanceMeters > 50) {
+    if (!isManual && distanceMeters > 50) {
       throw new BadRequestException(`체크인 가능 거리(50m)를 벗어났습니다. 현재 거리: ${Math.round(distanceMeters)}m`);
     }
 
     const trace = await this.getOrCreateTrace(courseId, userId);
     const last = trace.checkIns
-      .filter((checkIn) => checkIn.lat != null && checkIn.lng != null)
+      .filter((checkIn) => !checkIn.isManual && checkIn.lat != null && checkIn.lng != null)
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
     const speedKmh =
       last && dto.lat != null && dto.lng != null && last.lat != null && last.lng != null
         ? this.speedKmh(last.lat, last.lng, dto.lat, dto.lng, last.createdAt, new Date())
         : null;
-    if (!isManual && speedKmh != null && speedKmh > 250) {
+    if (!isManual && speedKmh != null && speedKmh > MAX_HUMAN_SPEED_KMH) {
       throw new BadRequestException('비정상 이동 속도가 감지되어 체크인을 거부했습니다.');
+    }
+
+    const existingCheckIn = trace.checkIns.find((checkIn) => checkIn.spotId === spot.id);
+    if (isManual && existingCheckIn && !existingCheckIn.isManual) {
+      return this.refreshTrace(courseId, userId);
     }
 
     await this.prisma.checkIn.upsert({
@@ -276,8 +294,16 @@ export class CoursesService {
   }
 
   private toCourseDto(course: NonNullable<CourseWithData>) {
-    const startedCount = course.traces.length;
-    const completedCount = course.traces.filter((trace) => trace.completedAt).length;
+    const verifiedTraces = course.traces.filter((trace) =>
+      trace.checkIns.some((checkIn) => !checkIn.isManual),
+    );
+    const startedCount = verifiedTraces.length;
+    const completedCount = verifiedTraces.filter((trace) => {
+      const verifiedSpotIds = new Set(
+        trace.checkIns.filter((checkIn) => !checkIn.isManual).map((checkIn) => checkIn.spotId),
+      );
+      return course.spots.length > 0 && verifiedSpotIds.size === course.spots.length;
+    }).length;
     const completionRate = startedCount > 0 ? Math.round((completedCount / startedCount) * 100) : 0;
     const weightSum = course.reviews.reduce((sum, review) => sum + review.weight, 0);
     const averageRating =
@@ -285,11 +311,16 @@ export class CoursesService {
         ? Math.round((course.reviews.reduce((sum, review) => sum + review.rating * review.weight, 0) / weightSum) * 10) / 10
         : 0;
     const performers = startedCount;
-    const tripickScore = this.tripickScore(completionRate, averageRating, performers);
-    const verifiedReviewCount = course.reviews.filter((review) => review.completionRate >= 100).length;
-    const allCheckIns = course.traces.flatMap((trace) => trace.checkIns);
-    const verifiedCheckIns = allCheckIns.filter(
-      (checkIn) => !checkIn.isManual && checkIn.distanceMeters != null && checkIn.distanceMeters <= 50,
+    const tripickScore = this.tripickScore(completionRate, averageRating, performers, course.spots);
+    const verifiedReviewCount = course.reviews.filter(
+      (review) => review.completionRate >= REVIEW_FULL_WEIGHT_COMPLETION,
+    ).length;
+    const countedReviewCount = course.reviews.filter((review) => review.weight > 0).length;
+    const verifiedCheckIns = course.traces.flatMap((trace) => trace.checkIns).filter(
+      (checkIn) => !checkIn.isManual,
+    );
+    const trustedCheckInCount = verifiedCheckIns.filter(
+      (checkIn) => checkIn.distanceMeters != null && checkIn.distanceMeters <= 50,
     ).length;
     const qualityFields = course.spots.flatMap((spot) => [
       spot.lat != null && spot.lng != null,
@@ -316,10 +347,10 @@ export class CoursesService {
       trustMetrics: {
         startedCount,
         completedCount,
-        reviewCount: course.reviews.length,
+        reviewCount: countedReviewCount,
         verifiedReviewCount,
-        checkInCount: allCheckIns.length,
-        verifiedCheckInCount: verifiedCheckIns,
+        checkInCount: verifiedCheckIns.length,
+        verifiedCheckInCount: trustedCheckInCount,
         qualityFieldCount: qualityFields.length,
         filledQualityFieldCount: filledQualityFields,
       },
@@ -336,19 +367,42 @@ export class CoursesService {
     };
   }
 
-  private toTraceDto(trace: { checkIns: { spotId: string }[]; completionRate: number; completedAt: Date | null }) {
+  private toTraceDto(trace: {
+    checkIns: { spotId: string; isManual: boolean }[];
+    completionRate: number;
+    completedAt: Date | null;
+  }) {
     return {
       visitedSpotIds: trace.checkIns.map((checkIn) => checkIn.spotId),
       completionRate: trace.completionRate,
       completedAt: trace.completedAt?.toISOString() ?? null,
+      isDemo: trace.checkIns.length > 0 && trace.checkIns.every((checkIn) => checkIn.isManual),
     };
   }
 
-  private tripickScore(completionRate: number, averageRating: number, performers: number) {
+  private tripickScore(
+    completionRate: number,
+    averageRating: number,
+    performers: number,
+    spots: { lat: number | null; lng: number | null }[],
+  ) {
     const performerScore = Math.min(100, Number(((Math.log10(performers + 1) / Math.log10(100)) * 100).toFixed(2)));
     const ratingScore = Number(((averageRating / 5) * 100).toFixed(2));
-    const totalScore = Number((0.5 * completionRate + 0.3 * ratingScore + 0.2 * performerScore).toFixed(2));
+    const baseScore = 0.5 * completionRate + 0.3 * ratingScore + 0.2 * performerScore;
+    const score = this.isHanokCoreCourse(spots) ? baseScore : baseScore * DISPERSION_BOOST;
+    const totalScore = Number(Math.min(100, score).toFixed(2));
     return { performerScore, ratingScore, totalScore };
+  }
+
+  private isHanokCoreCourse(spots: { lat: number | null; lng: number | null }[]) {
+    const withCoords = spots.filter(
+      (spot): spot is { lat: number; lng: number } => spot.lat != null && spot.lng != null,
+    );
+    if (withCoords.length === 0) return false;
+    const inCore = withCoords.filter(
+      (spot) => this.distanceMeters(HANOK_CENTER.lat, HANOK_CENTER.lng, spot.lat, spot.lng) <= HANOK_CORE_RADIUS_M,
+    ).length;
+    return inCore / withCoords.length > 0.5;
   }
 
   private distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number) {
