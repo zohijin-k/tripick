@@ -41,6 +41,11 @@ export class SpotDto {
   @IsOptional()
   @IsString()
   contentId?: string;
+
+  /** 유저가 직접 발굴해 추가한 숨은 스팟 (TourAPI 목록 밖) */
+  @IsOptional()
+  @IsBoolean()
+  isHidden?: boolean;
 }
 
 export class CreateCourseDto {

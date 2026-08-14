@@ -17,7 +17,7 @@ import { ScoreCard } from '../components/detail/ScoreCard';
 import { TrustCard } from '../components/detail/TrustCard';
 import { SpotList } from '../components/detail/SpotList';
 import { CourseMapPreview } from '../components/map/CourseMapPreview';
-import { calculateTripickScore, isHanokCoreCourse } from '../utils/score';
+import { calculateTripickScore } from '../utils/score';
 import { calculateTrustScore } from '../utils/trustScore';
 import { getReviewsForCourse, getAverageRating } from '../utils/reviewStorage';
 import mockCourses from '../data/mockCourses';
@@ -271,11 +271,7 @@ export function CourseDetailScreen() {
         <View style={styles.body}>
           {/* 수행 데이터가 쌓인 코스만 점수 카드 노출 */}
           {course.performers > 0 && (
-            <ScoreCard
-              result={tripickScore}
-              hasBehaviorData
-              dispersionBoosted={!isHanokCoreCourse(course.spots)}
-            />
+            <ScoreCard result={tripickScore} hasBehaviorData />
           )}
           <TrustCard result={trustScore} />
 

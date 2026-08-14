@@ -8,7 +8,11 @@ const REVIEW_FULL_WEIGHT_COMPLETION = 70;
 const MAX_HUMAN_SPEED_KMH = 144;
 const HANOK_CENTER = { lat: 35.8146, lng: 127.1523 };
 const HANOK_CORE_RADIUS_M = 600;
-const DISPERSION_BOOST = 1.2;
+// 숨은 전주 보너스 = 분산 보너스(한옥 코어 외 코스) + 발굴 보너스(검증된 숨은 스팟)
+const DISPERSION_BONUS = 0.2; // 한옥마을 코어 외 코스 +20%
+const HIDDEN_SPOT_BONUS = 0.1; // 검증된 숨은 스팟 1개당 +10%
+const HIDDEN_SPOT_BONUS_CAP = 0.2; // 발굴 보너스 상한 +20%
+const HIDDEN_SPOT_VERIFY_THRESHOLD = 2; // GPS 체크인 2회 이상(발굴자 외 1명 이상)이어야 "검증된" 숨은 스팟
 
 @Injectable()
 export class CoursesService {
@@ -91,6 +95,7 @@ export class CoursesService {
             address: spot.address,
             imageUrl: spot.imageUrl,
             contentId: spot.contentId,
+            isHidden: spot.isHidden ?? false,
             order: index,
           })),
         },
@@ -114,6 +119,7 @@ export class CoursesService {
             address: spot.address,
             imageUrl: spot.imageUrl,
             contentId: spot.contentId,
+            isHidden: spot.isHidden ?? false,
             order: index,
           })),
         },
@@ -311,7 +317,25 @@ export class CoursesService {
         ? Math.round((course.reviews.reduce((sum, review) => sum + review.rating * review.weight, 0) / weightSum) * 10) / 10
         : 0;
     const performers = startedCount;
-    const tripickScore = this.tripickScore(completionRate, averageRating, performers, course.spots);
+    // 스팟별 GPS 검증 체크인 수 (트레이스당 스팟 1회 유니크 → 체크인 수 = 검증한 사람 수)
+    const verifiedCheckInCountBySpot = new Map<string, number>();
+    for (const trace of course.traces) {
+      for (const checkIn of trace.checkIns) {
+        if (!checkIn.isManual) {
+          verifiedCheckInCountBySpot.set(
+            checkIn.spotId,
+            (verifiedCheckInCountBySpot.get(checkIn.spotId) ?? 0) + 1,
+          );
+        }
+      }
+    }
+    const tripickScore = this.tripickScore(
+      completionRate,
+      averageRating,
+      performers,
+      course.spots,
+      verifiedCheckInCountBySpot,
+    );
     const verifiedReviewCount = course.reviews.filter(
       (review) => review.completionRate >= REVIEW_FULL_WEIGHT_COMPLETION,
     ).length;
@@ -363,6 +387,7 @@ export class CoursesService {
         address: spot.address ?? undefined,
         imageUrl: spot.imageUrl ?? undefined,
         contentId: spot.contentId ?? undefined,
+        isHidden: spot.isHidden,
       })),
     };
   }
@@ -384,14 +409,34 @@ export class CoursesService {
     completionRate: number,
     averageRating: number,
     performers: number,
-    spots: { lat: number | null; lng: number | null }[],
+    spots: { id: string; lat: number | null; lng: number | null; isHidden: boolean }[],
+    verifiedCheckInCountBySpot: Map<string, number>,
   ) {
     const performerScore = Math.min(100, Number(((Math.log10(performers + 1) / Math.log10(100)) * 100).toFixed(2)));
     const ratingScore = Number(((averageRating / 5) * 100).toFixed(2));
     const baseScore = 0.5 * completionRate + 0.3 * ratingScore + 0.2 * performerScore;
-    const score = this.isHanokCoreCourse(spots) ? baseScore : baseScore * DISPERSION_BOOST;
-    const totalScore = Number(Math.min(100, score).toFixed(2));
-    return { performerScore, ratingScore, totalScore };
+
+    // 숨은 전주 보너스: 분산(한옥 코어 외) + 발굴(검증된 숨은 스팟)
+    const dispersionBonus = this.isHanokCoreCourse(spots) ? 0 : DISPERSION_BONUS;
+    // 숨은 스팟 = isHidden으로 명시된 유저 발굴 스팟, 타인 GPS 체크인 임계치 이상이면 "검증됨"
+    const verifiedHiddenSpotCount = spots.filter(
+      (spot) =>
+        spot.isHidden &&
+        (verifiedCheckInCountBySpot.get(spot.id) ?? 0) >= HIDDEN_SPOT_VERIFY_THRESHOLD,
+    ).length;
+    const discoveryBonus = Math.min(HIDDEN_SPOT_BONUS_CAP, verifiedHiddenSpotCount * HIDDEN_SPOT_BONUS);
+    const hiddenBonus = Number((dispersionBonus + discoveryBonus).toFixed(2));
+
+    const totalScore = Number(Math.min(100, baseScore * (1 + hiddenBonus)).toFixed(2));
+    return {
+      performerScore,
+      ratingScore,
+      dispersionBonus,
+      discoveryBonus,
+      hiddenBonus,
+      verifiedHiddenSpotCount,
+      totalScore,
+    };
   }
 
   private isHanokCoreCourse(spots: { lat: number | null; lng: number | null }[]) {

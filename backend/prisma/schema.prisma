@@ -54,6 +54,8 @@ model CourseSpot {
   address       String?
   imageUrl      String?
   contentId     String?
+  /// 유저가 직접 발굴해 추가한 숨은 스팟 (TourAPI 목록 밖)
+  isHidden      Boolean      @default(false)
   order         Int
   checkIns      CheckIn[]
 

@@ -8,6 +8,8 @@ export interface Spot {
   address?: string;
   imageUrl?: string;
   contentId?: string;
+  /** 유저가 직접 발굴해 추가한 숨은 스팟 (TourAPI 목록 밖) */
+  isHidden?: boolean;
 }
 
 export interface Course {
@@ -27,6 +29,8 @@ export interface Course {
   recommendationReasons?: string[];
   distanceMeters?: number;
   preferenceBonus?: number;
+  /** 서버 계산 트리픽 점수 (숨은 스팟 검증 카운트 포함) */
+  tripickScore?: TripickScoreResult;
   trustMetrics?: {
     startedCount: number;
     completedCount: number;
@@ -54,6 +58,14 @@ export interface TripickScoreResult {
   performerScore: number;
   ratingScore: number;
   totalScore: number;
+  /** 분산 보너스 (한옥마을 코어 외 코스 +0.2) */
+  dispersionBonus?: number;
+  /** 발굴 보너스 (검증된 숨은 스팟 1개당 +0.1, 상한 +0.2) */
+  discoveryBonus?: number;
+  /** 숨은 전주 보너스 = 분산 + 발굴 */
+  hiddenBonus?: number;
+  /** 타인 GPS 체크인으로 검증된 숨은 스팟 수 */
+  verifiedHiddenSpotCount?: number;
 }
 
 export interface TrustScoreItem {

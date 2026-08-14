@@ -5,7 +5,7 @@ import type { TripickScoreResult } from '../../types/course';
 interface Props {
   result: TripickScoreResult;
   hasBehaviorData?: boolean;
-  /** 한옥마을 외 지역 코스 +20% 분산 가중치 적용 여부 */
+  /** @deprecated 보너스는 result.hiddenBonus에서 읽음 (하위 호환용) */
   dispersionBoosted?: boolean;
 }
 
@@ -31,8 +31,19 @@ const barStyles = StyleSheet.create({
   },
 });
 
-export function ScoreCard({ result, hasBehaviorData = true, dispersionBoosted = false }: Props) {
+export function ScoreCard({ result, hasBehaviorData = true }: Props) {
   const { totalScore, performerScore, ratingScore } = result;
+
+  // 숨은 전주 보너스 표시 문구 구성
+  const dispersionBonus = result.dispersionBonus ?? 0;
+  const discoveryBonus = result.discoveryBonus ?? 0;
+  const hiddenBonus = result.hiddenBonus ?? 0;
+  const bonusParts: string[] = [];
+  if (dispersionBonus > 0) bonusParts.push(`한옥마을 외 +${Math.round(dispersionBonus * 100)}%`);
+  if (discoveryBonus > 0)
+    bonusParts.push(
+      `검증된 숨은 스팟 ${result.verifiedHiddenSpotCount ?? 0}곳 +${Math.round(discoveryBonus * 100)}%`,
+    );
 
   return (
     <View style={styles.card}>
@@ -45,9 +56,11 @@ export function ScoreCard({ result, hasBehaviorData = true, dispersionBoosted = 
           ? '완주율 × 50% + 만족도 × 30% + 수행자 수 × 20%'
           : '첫 수행 데이터가 쌓이면 점수가 계산됩니다.'}
       </Text>
-      {hasBehaviorData && dispersionBoosted && (
+      {hasBehaviorData && hiddenBonus > 0 && (
         <View style={styles.boostNote}>
-          <Text style={styles.boostNoteText}>🌱 한옥마을 외 지역 코스 · 분산 가중치 +20% 적용</Text>
+          <Text style={styles.boostNoteText}>
+            🌱 숨은 전주 보너스 +{Math.round(hiddenBonus * 100)}% · {bonusParts.join(' · ')}
+          </Text>
         </View>
       )}
 
