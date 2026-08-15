@@ -245,6 +245,26 @@ export class CoursesService {
     return this.refreshTrace(courseId, userId);
   }
 
+  /** 방문 검증(체크인)된 사람만 남길 수 있는 스팟 별점 */
+  async rateCheckIn(courseId: string, userId: string, spotId: string, rating: number) {
+    const course = await this.loadCourse(courseId);
+    if (!course) throw new NotFoundException('코스를 찾을 수 없습니다.');
+    const spot = course.spots.find((item) => item.id === spotId || item.sourceSpotId === spotId);
+    if (!spot) throw new NotFoundException('별점을 남길 장소를 찾을 수 없습니다.');
+
+    const trace = await this.prisma.traceSession.findUnique({
+      where: { courseId_userId: { courseId, userId } },
+      include: { checkIns: true },
+    });
+    const checkIn = trace?.checkIns.find((item) => item.spotId === spot.id);
+    if (!checkIn) {
+      throw new BadRequestException('체크인한 장소에만 별점을 남길 수 있습니다.');
+    }
+
+    await this.prisma.checkIn.update({ where: { id: checkIn.id }, data: { rating } });
+    return { spotId: spot.id, rating };
+  }
+
   async completeTrace(courseId: string, userId: string) {
     const trace = await this.refreshTrace(courseId, userId);
     if (trace.completionRate < 100) {
@@ -318,7 +338,9 @@ export class CoursesService {
         : 0;
     const performers = startedCount;
     // 스팟별 GPS 검증 체크인 수 (트레이스당 스팟 1회 유니크 → 체크인 수 = 검증한 사람 수)
+    // + 검증된 방문자의 스팟 별점 집계 (체험 모드 isManual 별점은 집계 제외)
     const verifiedCheckInCountBySpot = new Map<string, number>();
+    const ratingsBySpot = new Map<string, number[]>();
     for (const trace of course.traces) {
       for (const checkIn of trace.checkIns) {
         if (!checkIn.isManual) {
@@ -326,6 +348,11 @@ export class CoursesService {
             checkIn.spotId,
             (verifiedCheckInCountBySpot.get(checkIn.spotId) ?? 0) + 1,
           );
+          if (checkIn.rating != null) {
+            const list = ratingsBySpot.get(checkIn.spotId) ?? [];
+            list.push(checkIn.rating);
+            ratingsBySpot.set(checkIn.spotId, list);
+          }
         }
       }
     }
@@ -378,17 +405,26 @@ export class CoursesService {
         qualityFieldCount: qualityFields.length,
         filledQualityFieldCount: filledQualityFields,
       },
-      spots: course.spots.map((spot) => ({
-        id: spot.id,
-        name: spot.name,
-        category: spot.category ?? undefined,
-        lat: spot.lat ?? undefined,
-        lng: spot.lng ?? undefined,
-        address: spot.address ?? undefined,
-        imageUrl: spot.imageUrl ?? undefined,
-        contentId: spot.contentId ?? undefined,
-        isHidden: spot.isHidden,
-      })),
+      spots: course.spots.map((spot) => {
+        const ratings = ratingsBySpot.get(spot.id) ?? [];
+        const ratingAvg =
+          ratings.length > 0
+            ? Number((ratings.reduce((sum, value) => sum + value, 0) / ratings.length).toFixed(1))
+            : undefined;
+        return {
+          id: spot.id,
+          name: spot.name,
+          category: spot.category ?? undefined,
+          lat: spot.lat ?? undefined,
+          lng: spot.lng ?? undefined,
+          address: spot.address ?? undefined,
+          imageUrl: spot.imageUrl ?? undefined,
+          contentId: spot.contentId ?? undefined,
+          isHidden: spot.isHidden,
+          rating: ratingAvg,
+          ratingCount: ratings.length,
+        };
+      }),
     };
   }
 

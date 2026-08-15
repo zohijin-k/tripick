@@ -14,9 +14,21 @@ function SpotItem({ spot, index, accentColor }: { spot: Spot; index: number; acc
         <Text style={styles.numberText}>{index + 1}</Text>
       </View>
       <View style={styles.itemContent}>
-        <Text style={styles.spotName}>{spot.name}</Text>
+        <View style={styles.nameRow}>
+          <Text style={styles.spotName}>{spot.name}</Text>
+          {spot.isHidden && (
+            <View style={styles.hiddenBadge}>
+              <Text style={styles.hiddenBadgeText}>숨은 스팟</Text>
+            </View>
+          )}
+        </View>
         {spot.address ? (
           <Text style={styles.spotAddress} numberOfLines={1}>{spot.address}</Text>
+        ) : null}
+        {spot.rating != null && (spot.ratingCount ?? 0) > 0 ? (
+          <Text style={styles.spotRating}>
+            ★ {spot.rating.toFixed(1)} · 검증된 방문자 {spot.ratingCount}명
+          </Text>
         ) : null}
       </View>
       <View style={[styles.visitIcon, spot.visited && styles.visitIconDone]}>
@@ -112,10 +124,33 @@ const styles = StyleSheet.create({
   itemContent: {
     flex: 1,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   spotName: {
     fontSize: 14,
     fontWeight: '600',
     color: '#13315c',
+    flexShrink: 1,
+  },
+  hiddenBadge: {
+    backgroundColor: '#fef3c7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  hiddenBadgeText: {
+    fontSize: 9,
+    color: '#b45309',
+    fontWeight: '800',
+  },
+  spotRating: {
+    fontSize: 11,
+    color: '#b45309',
+    fontWeight: '700',
+    marginTop: 3,
   },
   spotAddress: {
     fontSize: 11,

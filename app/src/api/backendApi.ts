@@ -221,3 +221,19 @@ export async function completeTrace(courseId: string): Promise<TraceResponse | n
     auth: true,
   });
 }
+
+/** 체크인(방문 검증)한 스팟에만 별점 저장 가능 — 서버가 체크인 여부를 강제함 */
+export async function rateSpotCheckIn(input: {
+  courseId: string;
+  spotId: string;
+  rating: number;
+}): Promise<{ spotId: string; rating: number } | null> {
+  return requestJson(
+    `/courses/${encodeURIComponent(input.courseId)}/checkins/${encodeURIComponent(input.spotId)}/rating`,
+    {
+      method: 'POST',
+      auth: true,
+      body: JSON.stringify({ rating: input.rating }),
+    },
+  );
+}

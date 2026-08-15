@@ -10,6 +10,10 @@ export interface Spot {
   contentId?: string;
   /** 유저가 직접 발굴해 추가한 숨은 스팟 (TourAPI 목록 밖) */
   isHidden?: boolean;
+  /** 검증된 방문자(GPS 체크인)의 평균 별점 */
+  rating?: number;
+  /** 별점을 남긴 검증된 방문자 수 */
+  ratingCount?: number;
 }
 
 export interface Course {

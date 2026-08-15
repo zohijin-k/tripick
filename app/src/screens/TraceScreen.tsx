@@ -30,6 +30,7 @@ import {
   saveSpotCheckIn,
 } from '../utils/traceStorage';
 import { saveReview, hasReviewedCourse } from '../utils/reviewStorage';
+import { rateSpotCheckIn } from '../api/backendApi';
 import { ReviewModal } from '../components/ReviewModal';
 import { CourseMapPreview } from '../components/map/CourseMapPreview';
 
@@ -440,6 +441,9 @@ export function TraceScreen() {
   const [checkInNotice, setCheckInNotice] = useState<string | null>(null);
   const checkingSpotIdRef = useRef<string | null>(null);
 
+  // ── 스팟 별점: 체크인 직후에만 노출되는 프롬프트 (방문 검증된 별점) ────────
+  const [ratingPrompt, setRatingPrompt] = useState<{ spotId: string; name: string } | null>(null);
+
   // ── 스푸핑 탐지 state ──────────────────────────────────────────────────────
   const lastFixRef = useRef<{ lat: number; lng: number; t: number } | null>(null);
   const [spoofSuspected, setSpoofSuspected] = useState(false);
@@ -543,6 +547,7 @@ export function TraceScreen() {
     }
     setCheckInNotice(`${currentSpot.name} 도착 · 자동 체크인 완료`);
     setTimeout(() => setCheckInNotice(null), 3500);
+    setRatingPrompt({ spotId: currentSpot.id, name: currentSpot.name });
   }, [courseId, currentSpot, userLocation]);
 
   useEffect(() => {
@@ -570,7 +575,21 @@ export function TraceScreen() {
     }
     setCheckInNotice(`${currentSpot.name} 도착 (체험) · 체크인 완료`);
     setTimeout(() => setCheckInNotice(null), 2500);
+    setRatingPrompt({ spotId: currentSpot.id, name: currentSpot.name });
   }, [courseId, currentSpot]);
+
+  // ── 스팟 별점 저장 (서버가 체크인 여부를 강제 — 방문 검증된 별점) ──────────
+  const handleRateSpot = useCallback(
+    async (rating: number) => {
+      if (!ratingPrompt) return;
+      const { spotId, name } = ratingPrompt;
+      setRatingPrompt(null);
+      await rateSpotCheckIn({ courseId, spotId, rating });
+      setCheckInNotice(`${name} · 별점 ${rating}점 저장 완료`);
+      setTimeout(() => setCheckInNotice(null), 2000);
+    },
+    [courseId, ratingPrompt],
+  );
 
   const handleDemoModeStart = useCallback(() => {
     Alert.alert(
@@ -776,6 +795,33 @@ export function TraceScreen() {
           </View>
         )}
 
+        {ratingPrompt && (
+          <View style={styles.ratingPrompt}>
+            <View style={styles.ratingPromptBody}>
+              <Text style={styles.ratingPromptTitle}>{ratingPrompt.name}, 어땠어요?</Text>
+              <Text style={styles.ratingPromptSub}>체크인한 사람만 남길 수 있는 별점이에요</Text>
+              <View style={styles.ratingStarsRow}>
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <TouchableOpacity
+                    key={value}
+                    onPress={() => handleRateSpot(value)}
+                    hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.ratingStar}>☆</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+            <TouchableOpacity
+              onPress={() => setRatingPrompt(null)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={styles.ratingDismiss}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {isCompleted && <CompletionCard title={course.title} total={totalCount} />}
 
         {/* Reset progress link */}
@@ -888,6 +934,13 @@ const styles = StyleSheet.create({
   autoBarTitle: { color: '#13315c', fontSize: 13, fontWeight: '800' },
   autoBarSpot: { color: '#64748b', fontSize: 11, marginTop: 2 },
   autoBarDistance: { color: '#0f8b6d', fontSize: 13, fontWeight: '800' },
+  ratingPrompt: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d1e7dd', borderRadius: 12, padding: 16, marginBottom: 12, shadowColor: '#13315c', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2 },
+  ratingPromptBody: { flex: 1 },
+  ratingPromptTitle: { fontSize: 14, fontWeight: '800', color: '#13315c' },
+  ratingPromptSub: { fontSize: 11, color: '#0f8b6d', fontWeight: '600', marginTop: 3 },
+  ratingStarsRow: { flexDirection: 'row', gap: 6, marginTop: 10 },
+  ratingStar: { fontSize: 26, color: '#f59e0b' },
+  ratingDismiss: { fontSize: 14, color: '#8a9db0', fontWeight: '700' },
   checkInNotice: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#dcfce7', borderWidth: 1, borderColor: '#86efac', borderRadius: 8, padding: 14, marginBottom: 12 },
   checkInNoticeIcon: { color: '#047857', fontSize: 18, fontWeight: '900' },
   checkInNoticeText: { flex: 1, color: '#065f46', fontSize: 13, fontWeight: '800' },

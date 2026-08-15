@@ -107,6 +107,8 @@ model CheckIn {
   distanceMeters Float?
   speedKmh       Float?
   isManual       Boolean      @default(false)
+  /// 방문 검증(체크인)된 사람만 남길 수 있는 스팟 별점 (1~5)
+  rating         Int?
   createdAt      DateTime     @default(now())
 
   @@unique([traceSessionId, spotId])

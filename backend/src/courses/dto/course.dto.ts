@@ -107,6 +107,13 @@ export class CheckInDto {
   isManual?: boolean;
 }
 
+export class RateCheckInDto {
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  rating!: number;
+}
+
 export class NearbyCourseQueryDto {
   @Type(() => Number)
   @IsNumber()

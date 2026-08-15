@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { AuthUser, CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { CheckInDto, CreateCourseDto, CreateReviewDto, NearbyCourseQueryDto } from './dto/course.dto';
+import { CheckInDto, CreateCourseDto, CreateReviewDto, NearbyCourseQueryDto, RateCheckInDto } from './dto/course.dto';
 import { CoursesService } from './courses.service';
 
 @Controller('courses')
@@ -70,6 +70,17 @@ export class CoursesController {
     @Body() dto: CheckInDto,
   ) {
     return this.coursesService.checkIn(id, user.id, dto);
+  }
+
+  @Post(':id/checkins/:spotId/rating')
+  @UseGuards(JwtAuthGuard)
+  rateCheckIn(
+    @Param('id') id: string,
+    @Param('spotId') spotId: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: RateCheckInDto,
+  ) {
+    return this.coursesService.rateCheckIn(id, user.id, spotId, dto.rating);
   }
 
   @Post(':id/trace/complete')
