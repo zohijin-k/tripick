@@ -196,11 +196,16 @@ export async function fetchTraceProgress(courseId: string): Promise<TraceRespons
   return requestJson<TraceResponse>(`/courses/${encodeURIComponent(courseId)}/trace`, { auth: true });
 }
 
+/**
+ * 위치 정직성: 원좌표(lat/lng)는 기기 밖으로 내보내지 않는다.
+ * 50m 판정·속도 계산은 기기에서 수행하고, 파생값만 서버로 전송해 검증에 사용.
+ * (원스토어 위치정보 "미전송" 신고와 일치)
+ */
 export async function checkInSpot(input: {
   courseId: string;
   spotId: string;
-  lat?: number;
-  lng?: number;
+  distanceMeters?: number;
+  speedKmh?: number;
   isManual?: boolean;
 }): Promise<TraceResponse | null> {
   return requestJson<TraceResponse>(`/courses/${encodeURIComponent(input.courseId)}/checkins`, {
@@ -208,8 +213,8 @@ export async function checkInSpot(input: {
     auth: true,
     body: JSON.stringify({
       spotId: input.spotId,
-      lat: input.lat,
-      lng: input.lng,
+      distanceMeters: input.distanceMeters,
+      speedKmh: input.speedKmh,
       isManual: input.isManual,
     }),
   });

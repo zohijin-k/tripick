@@ -1,6 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { checkInSpot, completeTrace, fetchTraceProgress } from '../api/backendApi';
-import type { LatLng } from './distance';
 
 const key = (courseId: string) => `trace_progress_${courseId}`;
 
@@ -39,22 +38,28 @@ export async function clearTraceProgress(courseId: string): Promise<void> {
   }
 }
 
+/**
+ * 위치 정직성: 원좌표는 기기 밖으로 내보내지 않고,
+ * 기기에서 계산한 파생값(목적지까지 거리, 이동 속도)만 서버로 전송한다.
+ */
 export async function saveSpotCheckIn({
   courseId,
   spotId,
-  userLocation,
+  distanceMeters,
+  speedKmh,
   isManual,
 }: {
   courseId: string;
   spotId: string;
-  userLocation?: LatLng | null;
+  distanceMeters?: number;
+  speedKmh?: number;
   isManual?: boolean;
 }): Promise<string[] | null> {
   const serverTrace = await checkInSpot({
     courseId,
     spotId,
-    lat: userLocation?.lat,
-    lng: userLocation?.lng,
+    distanceMeters,
+    speedKmh,
     isManual,
   });
   if (serverTrace) {

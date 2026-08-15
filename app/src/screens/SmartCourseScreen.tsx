@@ -6,10 +6,12 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -240,6 +242,7 @@ function PreviewCard({
               <Text style={pvStyles.spotNumText}>{i + 1}</Text>
             </View>
             <Text style={pvStyles.spotName} numberOfLines={1}>{spot.name}</Text>
+            {spot.isHidden && <Text style={pvStyles.spotHiddenBadge}>🌱 숨은 스팟</Text>}
           </View>
         ))}
       </View>
@@ -330,6 +333,53 @@ const pvStyles = StyleSheet.create({
   reasonRow: { flexDirection: 'row', gap: 6, marginBottom: 4 },
   reasonDot: { fontSize: 13, lineHeight: 19 },
   reasonText: { flex: 1, fontSize: 12, color: '#334155', lineHeight: 19 },
+  spotHiddenBadge: { fontSize: 10, color: '#b45309', fontWeight: '800', backgroundColor: '#fef3c7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, overflow: 'hidden' },
+});
+
+// ─── 숨은 스팟 발굴 카드 스타일 ───────────────────────────────────────────────
+
+const hsStyles = StyleSheet.create({
+  card: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 18,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#fde68a',
+  },
+  title: { fontSize: 14, fontWeight: '800', color: '#13315c' },
+  sub: { fontSize: 11.5, color: '#5c6b7a', lineHeight: 17, marginTop: 5, marginBottom: 12 },
+  inputRow: { gap: 8 },
+  input: {
+    borderWidth: 1,
+    borderColor: '#dce6ec',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13,
+    color: '#13315c',
+    backgroundColor: '#f8fafc',
+  },
+  addBtn: {
+    borderRadius: 10,
+    paddingVertical: 11,
+    alignItems: 'center',
+  },
+  addBtnDisabled: { backgroundColor: '#cbd5e1' },
+  addBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '800' },
+  addedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
+    backgroundColor: '#fffbeb',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  addedBadge: { fontSize: 13 },
+  addedName: { flex: 1, fontSize: 13, fontWeight: '700', color: '#13315c' },
+  addedRemove: { fontSize: 13, color: '#8a9db0', fontWeight: '700' },
 });
 
 // ─── SmartCourseScreen ────────────────────────────────────────────────────────
@@ -343,6 +393,10 @@ export function SmartCourseScreen() {
   const [generatedCourse, setGeneratedCourse] = useState<Course | null>(null);
   const [coverImage, setCoverImage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // ── 숨은 스팟 발굴: 현재 위치로 나만 아는 장소를 코스에 추가 ────────────────
+  const [hiddenSpotName, setHiddenSpotName] = useState('');
+  const [isAddingHiddenSpot, setIsAddingHiddenSpot] = useState(false);
 
   const { spots: tourSpots, loading: spotsLoading, source: spotsSource } = useTourSpots();
 
@@ -398,6 +452,53 @@ export function SmartCourseScreen() {
   const handleTransportSelect = useCallback((t: TransportOption) => {
     setSelectedTransport(t);
     setGeneratedCourse(null);
+  }, []);
+
+  // ── 숨은 스팟 추가: 지금 서 있는 곳의 좌표로 추가 (발굴은 현장에서) ─────────
+  const handleAddHiddenSpot = useCallback(async () => {
+    const name = hiddenSpotName.trim();
+    if (!generatedCourse || !name || isAddingHiddenSpot) return;
+    setIsAddingHiddenSpot(true);
+    try {
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.status !== 'granted') {
+        Alert.alert('위치 권한 필요', '지금 서 있는 곳을 스팟으로 추가하려면 위치 권한이 필요해요.');
+        return;
+      }
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+      const spot: Spot = {
+        id: `hidden-${Date.now()}`,
+        name,
+        category: '숨은 스팟',
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+        isHidden: true,
+      };
+      setGeneratedCourse((prev) =>
+        prev
+          ? { ...prev, spots: [...prev.spots, spot], spotCount: prev.spots.length + 1 }
+          : prev,
+      );
+      setHiddenSpotName('');
+    } catch {
+      Alert.alert('위치 확인 실패', '현재 위치를 가져오지 못했어요. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setIsAddingHiddenSpot(false);
+    }
+  }, [generatedCourse, hiddenSpotName, isAddingHiddenSpot]);
+
+  const handleRemoveHiddenSpot = useCallback((spotId: string) => {
+    setGeneratedCourse((prev) =>
+      prev
+        ? {
+            ...prev,
+            spots: prev.spots.filter((spot) => spot.id !== spotId),
+            spotCount: prev.spots.filter((spot) => spot.id !== spotId).length,
+          }
+        : prev,
+    );
   }, []);
 
   const handleSave = useCallback(async () => {
@@ -565,6 +666,54 @@ export function SmartCourseScreen() {
               coverImage={coverImage}
               onPickImage={handlePickImage}
             />
+
+            {/* ── 숨은 스팟 발굴 ── */}
+            <View style={hsStyles.card}>
+              <Text style={hsStyles.title}>🌱 숨은 스팟 발굴</Text>
+              <Text style={hsStyles.sub}>
+                나만 아는 맛집·명소가 있다면 지금 서 있는 곳을 코스에 추가하세요.{'\n'}
+                다른 여행자의 체크인으로 검증되면 숨은 전주 보너스가 붙어요.
+              </Text>
+              <View style={hsStyles.inputRow}>
+                <TextInput
+                  style={hsStyles.input}
+                  placeholder="장소 이름 (예: 골목 안 칼국수집)"
+                  placeholderTextColor="#9aa8b5"
+                  value={hiddenSpotName}
+                  onChangeText={setHiddenSpotName}
+                  maxLength={30}
+                  returnKeyType="done"
+                  onSubmitEditing={handleAddHiddenSpot}
+                />
+                <TouchableOpacity
+                  style={[
+                    hsStyles.addBtn,
+                    hiddenSpotName.trim() && !isAddingHiddenSpot
+                      ? { backgroundColor: accent }
+                      : hsStyles.addBtnDisabled,
+                  ]}
+                  onPress={handleAddHiddenSpot}
+                  disabled={!hiddenSpotName.trim() || isAddingHiddenSpot}
+                  activeOpacity={0.85}
+                >
+                  <Text style={hsStyles.addBtnText}>
+                    {isAddingHiddenSpot ? '위치 확인 중…' : '📍 현재 위치로 추가'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              {generatedCourse.spots.filter((spot) => spot.isHidden).map((spot) => (
+                <View key={spot.id} style={hsStyles.addedRow}>
+                  <Text style={hsStyles.addedBadge}>🌱</Text>
+                  <Text style={hsStyles.addedName} numberOfLines={1}>{spot.name}</Text>
+                  <TouchableOpacity
+                    onPress={() => handleRemoveHiddenSpot(spot.id)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text style={hsStyles.addedRemove}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
           </>
         )}
 

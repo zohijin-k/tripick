@@ -96,11 +96,30 @@ export class CheckInDto {
   @IsString()
   spotId!: string;
 
+  /**
+   * 위치 정직성: 신규 클라이언트는 원좌표 대신 기기에서 계산한
+   * 파생값(distanceMeters·speedKmh)만 전송한다. lat/lng는 구버전 APK
+   * 하위호환용으로만 받고, 서버는 어떤 경우에도 원좌표를 저장하지 않는다.
+   */
+  @IsOptional()
   @IsNumber()
-  lat!: number;
+  @Min(0)
+  distanceMeters?: number;
 
+  @IsOptional()
   @IsNumber()
-  lng!: number;
+  @Min(0)
+  speedKmh?: number;
+
+  /** @deprecated 구버전 APK 하위호환용 — 저장되지 않음 */
+  @IsOptional()
+  @IsNumber()
+  lat?: number;
+
+  /** @deprecated 구버전 APK 하위호환용 — 저장되지 않음 */
+  @IsOptional()
+  @IsNumber()
+  lng?: number;
 
   @IsOptional()
   @IsBoolean()

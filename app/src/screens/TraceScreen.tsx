@@ -446,6 +446,7 @@ export function TraceScreen() {
 
   // ── 스푸핑 탐지 state ──────────────────────────────────────────────────────
   const lastFixRef = useRef<{ lat: number; lng: number; t: number } | null>(null);
+  const lastSpeedKmhRef = useRef<number | null>(null);
   const [spoofSuspected, setSpoofSuspected] = useState(false);
 
   // ── 체험 모드 (심사·시연용: GPS 없이 가상 수행) ────────────────────────────
@@ -534,10 +535,13 @@ export function TraceScreen() {
   const markCurrentSpotVisited = useCallback(async () => {
     if (!currentSpot || !userLocation || checkingSpotIdRef.current === currentSpot.id) return;
     checkingSpotIdRef.current = currentSpot.id;
+    // 위치 정직성: 원좌표 대신 기기에서 계산한 파생값(거리·속도)만 전송
     const serverVisitedIds = await saveSpotCheckIn({
       courseId,
       spotId: currentSpot.id,
-      userLocation,
+      distanceMeters:
+        distanceToCurrentSpot != null ? Number(distanceToCurrentSpot.toFixed(1)) : undefined,
+      speedKmh: lastSpeedKmhRef.current ?? undefined,
       isManual: false,
     });
     if (serverVisitedIds) {
@@ -548,7 +552,7 @@ export function TraceScreen() {
     setCheckInNotice(`${currentSpot.name} 도착 · 자동 체크인 완료`);
     setTimeout(() => setCheckInNotice(null), 3500);
     setRatingPrompt({ spotId: currentSpot.id, name: currentSpot.name });
-  }, [courseId, currentSpot, userLocation]);
+  }, [courseId, currentSpot, userLocation, distanceToCurrentSpot]);
 
   useEffect(() => {
     checkingSpotIdRef.current = null;
@@ -565,7 +569,7 @@ export function TraceScreen() {
     const serverVisitedIds = await saveSpotCheckIn({
       courseId,
       spotId: currentSpot.id,
-      userLocation: virtualLocation,
+      distanceMeters: 0,
       isManual: true,
     });
     if (serverVisitedIds) {
@@ -629,7 +633,9 @@ export function TraceScreen() {
           if (prev && fix.t > prev.t) {
             const dist = calculateDistanceMeters(prev.lat, prev.lng, fix.lat, fix.lng) ?? 0;
             const seconds = Math.max(0.5, (fix.t - prev.t) / 1000);
-            setSpoofSuspected(dist / seconds > MAX_HUMAN_SPEED_MPS);
+            const speedMps = dist / seconds;
+            lastSpeedKmhRef.current = Number((speedMps * 3.6).toFixed(1));
+            setSpoofSuspected(speedMps > MAX_HUMAN_SPEED_MPS);
           }
           lastFixRef.current = fix;
           setUserLocation({ lat: fix.lat, lng: fix.lng });

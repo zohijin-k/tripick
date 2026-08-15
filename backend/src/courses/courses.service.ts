@@ -197,22 +197,39 @@ export class CoursesService {
     if (!spot) throw new NotFoundException('체크인할 장소를 찾을 수 없습니다.');
 
     const isManual = dto.isManual === true;
-    if (spot.lat == null || spot.lng == null) {
+    if (!isManual && (spot.lat == null || spot.lng == null)) {
       throw new BadRequestException('목적지 좌표가 없어 GPS 체크인을 검증할 수 없습니다.');
     }
-    const distanceMeters = this.distanceMeters(dto.lat, dto.lng, spot.lat, spot.lng);
-    if (!isManual && distanceMeters > 50) {
-      throw new BadRequestException(`체크인 가능 거리(50m)를 벗어났습니다. 현재 거리: ${Math.round(distanceMeters)}m`);
+
+    // 위치 정직성: 신규 클라는 파생값(distanceMeters·speedKmh)만 전송.
+    // 구버전 APK가 lat/lng를 보내면 검증 계산에만 쓰고 원좌표는 저장하지 않는다.
+    const distanceMeters =
+      dto.distanceMeters ??
+      (dto.lat != null && dto.lng != null && spot.lat != null && spot.lng != null
+        ? this.distanceMeters(dto.lat, dto.lng, spot.lat, spot.lng)
+        : isManual
+          ? 0
+          : null);
+    if (!isManual) {
+      if (distanceMeters == null) {
+        throw new BadRequestException('체크인 거리 정보가 없어 GPS 체크인을 검증할 수 없습니다.');
+      }
+      if (distanceMeters > 50) {
+        throw new BadRequestException(`체크인 가능 거리(50m)를 벗어났습니다. 현재 거리: ${Math.round(distanceMeters)}m`);
+      }
     }
 
     const trace = await this.getOrCreateTrace(courseId, userId);
-    const last = trace.checkIns
-      .filter((checkIn) => !checkIn.isManual && checkIn.lat != null && checkIn.lng != null)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
-    const speedKmh =
-      last && dto.lat != null && dto.lng != null && last.lat != null && last.lng != null
-        ? this.speedKmh(last.lat, last.lng, dto.lat, dto.lng, last.createdAt, new Date())
-        : null;
+    let speedKmh = dto.speedKmh ?? null;
+    if (speedKmh == null && dto.lat != null && dto.lng != null) {
+      // 구버전 APK 하위호환: 과거 저장분에 좌표가 남아 있으면 속도 계산
+      const last = trace.checkIns
+        .filter((checkIn) => !checkIn.isManual && checkIn.lat != null && checkIn.lng != null)
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+      if (last && last.lat != null && last.lng != null) {
+        speedKmh = this.speedKmh(last.lat, last.lng, dto.lat, dto.lng, last.createdAt, new Date());
+      }
+    }
     if (!isManual && speedKmh != null && speedKmh > MAX_HUMAN_SPEED_KMH) {
       throw new BadRequestException('비정상 이동 속도가 감지되어 체크인을 거부했습니다.');
     }
@@ -222,11 +239,12 @@ export class CoursesService {
       return this.refreshTrace(courseId, userId);
     }
 
+    // 원좌표(lat/lng)는 어떤 경우에도 저장하지 않는다 (위치정보 미전송·미저장 원칙)
     await this.prisma.checkIn.upsert({
       where: { traceSessionId_spotId: { traceSessionId: trace.id, spotId: spot.id } },
       update: {
-        lat: dto.lat,
-        lng: dto.lng,
+        lat: null,
+        lng: null,
         distanceMeters,
         speedKmh,
         isManual,
@@ -234,8 +252,8 @@ export class CoursesService {
       create: {
         traceSessionId: trace.id,
         spotId: spot.id,
-        lat: dto.lat,
-        lng: dto.lng,
+        lat: null,
+        lng: null,
         distanceMeters,
         speedKmh,
         isManual,
