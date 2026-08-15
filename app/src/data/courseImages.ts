@@ -24,6 +24,13 @@ const SEED_COURSE_IMAGES: Record<string, string> = {
   // 덕진공원 연화정 야경 (팀 큐레이션 이미지 — 레포 호스팅)
   'deokjin-lake':
     'https://raw.githubusercontent.com/zohijin-k/tripick/main/docs/course-images/deokjin.jpg',
+  // 새벽 콩나물국밥 로드 — 전주 남부시장 (TourAPI)
+  // TODO(지니): 전주 가면 실제 국밥 사진 찍어서 docs/course-images/gukbap.jpg로 교체 추천
+  'jeonju-gukbap-road':
+    'https://tong.visitkorea.or.kr/cms/resource/35/3428535_image2_1.jpg',
+  // 전주 가맥 골목 투어 — 전주 동문예술거리(현무2길, 가맥거리 옆) (TourAPI)
+  'jeonju-gamek-tour':
+    'https://tong.visitkorea.or.kr/cms/resource/99/3537099_image2_1.jpg',
 };
 
 /** 서버 시드 데이터는 id가 다를 수 있어 제목 키워드로도 매칭한다. */
@@ -34,6 +41,8 @@ const TITLE_FALLBACKS: Array<[keyword: string, url: string]> = [
   ['한옥마을', SEED_COURSE_IMAGES['hanok-bypass']],
   ['남부시장', SEED_COURSE_IMAGES['nambu-market-youth']],
   ['덕진공원', SEED_COURSE_IMAGES['deokjin-lake']],
+  ['국밥', SEED_COURSE_IMAGES['jeonju-gukbap-road']],
+  ['가맥', SEED_COURSE_IMAGES['jeonju-gamek-tour']],
 ];
 
 /** 코스의 대표 사진 URL을 구한다. 없으면 undefined (→ 컬러 fallback 헤더). */
