@@ -107,9 +107,22 @@ function buildCourse(
   const distKm = (selected.length * 0.6).toFixed(1);
   const reasons = generateRecommendationReasons(selected, { style, duration, transport });
 
+  // 기계적 조합("로컬 짧은 코스 전주 코스") 대신 스타일별 이름 풀에서 선택.
+  // 저장 전 프리뷰에서 직접 수정할 수 있다.
+  const TITLE_POOL: Record<StyleOption, string[]> = {
+    감성: ['감성 충전 전주 산책', '오늘의 전주, 감성 코스'],
+    역사: ['전주 시간여행 코스', '골목마다 역사, 전주 걷기'],
+    야경: ['불 켜진 전주의 밤', '전주 야경 한 바퀴'],
+    먹거리: ['전주 미식 로드', '한 입씩, 전주 맛 코스'],
+    자연: ['초록 전주 숨 고르기', '전주 자연 산책 코스'],
+    로컬: ['로컬처럼 걷는 전주', '동네 사람의 전주 코스'],
+  };
+  const pool = TITLE_POOL[style];
+  const title = pool[ts % pool.length];
+
   return {
     id: `smart-${ts}`,
-    title: `${style} ${duration} 전주 코스`,
+    title,
     area: '전주',
     theme: style,
     distance: `${distKm}km`,
@@ -666,6 +679,21 @@ export function SmartCourseScreen() {
               coverImage={coverImage}
               onPickImage={handlePickImage}
             />
+
+            {/* ── 코스 이름 수정 ── */}
+            <View style={[hsStyles.card, { borderColor: '#dce6ec' }]}>
+              <Text style={hsStyles.title}>✏️ 코스 이름</Text>
+              <TextInput
+                style={[hsStyles.input, { marginTop: 10 }]}
+                value={generatedCourse.title}
+                onChangeText={(text) =>
+                  setGeneratedCourse((prev) => (prev ? { ...prev, title: text } : prev))
+                }
+                maxLength={24}
+                placeholder="코스 이름을 입력하세요"
+                placeholderTextColor="#9aa8b5"
+              />
+            </View>
 
             {/* ── 숨은 스팟 발굴 ── */}
             <View style={hsStyles.card}>

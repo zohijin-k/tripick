@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CheckInDto, CreateCourseDto, CreateReviewDto } from './dto/course.dto';
 
@@ -127,6 +127,17 @@ export class CoursesService {
       include: this.courseInclude(),
     });
     return this.toCourseDto(course);
+  }
+
+  /** 내가 만든 코스만 삭제 가능 (시드 코스는 creatorId가 없어 삭제 불가) */
+  async remove(courseId: string, userId: string) {
+    const course = await this.prisma.course.findUnique({ where: { id: courseId } });
+    if (!course) throw new NotFoundException('코스를 찾을 수 없습니다.');
+    if (course.creatorId !== userId) {
+      throw new ForbiddenException('내가 만든 코스만 삭제할 수 있습니다.');
+    }
+    await this.prisma.course.delete({ where: { id: courseId } });
+    return { deleted: true };
   }
 
   async getReviews(courseId: string) {

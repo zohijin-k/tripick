@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Course } from '../types/course';
 import mockCourses from '../data/mockCourses';
-import { createCourse, fetchCourse, fetchMyCourses } from '../api/backendApi';
+import { createCourse, deleteCourse, fetchCourse, fetchMyCourses } from '../api/backendApi';
 
 const USER_COURSES_KEY = 'user_courses';
 const COURSE_IMAGES_KEY = 'course_images';
@@ -71,6 +71,20 @@ export async function saveUserCourse(course: Course): Promise<void> {
     await AsyncStorage.setItem(USER_COURSES_KEY, JSON.stringify(updated));
   } catch {
     throw new Error('코스 저장에 실패했습니다.');
+  }
+}
+
+/** 내가 만든 코스 삭제 — 서버 + 로컬 목록 양쪽에서 제거 */
+export async function deleteUserCourse(courseId: string): Promise<void> {
+  await deleteCourse(courseId);
+  try {
+    const raw = await AsyncStorage.getItem(USER_COURSES_KEY);
+    if (raw) {
+      const list = (JSON.parse(raw) as Course[]).filter((c) => c.id !== courseId);
+      await AsyncStorage.setItem(USER_COURSES_KEY, JSON.stringify(list));
+    }
+  } catch {
+    // 로컬 정리는 실패해도 무시 (서버가 원본)
   }
 }
 

@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
+  Alert,
   ImageBackground,
   Modal,
   Pressable,
@@ -17,7 +18,7 @@ import mockCourses from '../data/mockCourses';
 import { getCourseImage } from '../data/courseImages';
 import type { Course } from '../types/course';
 import type { RootStackParamList } from '../navigation/types';
-import { getUserCourses } from '../utils/courseStorage';
+import { getUserCourses, deleteUserCourse } from '../utils/courseStorage';
 import { fetchCourses, fetchJeonjuFestivals } from '../api/backendApi';
 import type { JeonjuFestival } from '../api/backendApi';
 import * as Location from 'expo-location';
@@ -60,11 +61,13 @@ function PhotoCard({
   badges,
   footer,
   onPress,
+  onLongPress,
 }: {
   course: Course;
   badges: React.ReactNode;
   footer?: React.ReactNode;
   onPress: () => void;
+  onLongPress?: () => void;
 }) {
   const imageUrl = getCourseImage(course);
   const accent = accentFor(course.theme);
@@ -86,7 +89,7 @@ function PhotoCard({
   );
 
   return (
-    <TouchableOpacity style={pcStyles.card} onPress={onPress} activeOpacity={0.88}>
+    <TouchableOpacity style={pcStyles.card} onPress={onPress} onLongPress={onLongPress} activeOpacity={0.88}>
       {imageUrl ? (
         <ImageBackground source={{ uri: imageUrl }} style={pcStyles.image} resizeMode="cover">
           {overlay}
@@ -188,11 +191,20 @@ function InlineCourseCard({
 
 // ─── UserCourseCard ───────────────────────────────────────────────────────────
 
-function UserCourseCard({ course, onPress }: { course: Course; onPress: () => void }) {
+function UserCourseCard({
+  course,
+  onPress,
+  onLongPress,
+}: {
+  course: Course;
+  onPress: () => void;
+  onLongPress?: () => void;
+}) {
   return (
     <PhotoCard
       course={course}
       onPress={onPress}
+      onLongPress={onLongPress}
       badges={
         <>
           <PillBadge label="MY" strong />
@@ -371,6 +383,23 @@ export function HomeScreen() {
     }, []),
   );
 
+  // ── 내가 만든 코스 삭제 (길게 눌러서) ──────────────────────────────────────
+  const handleDeleteUserCourse = useCallback((course: Course) => {
+    Alert.alert('코스 삭제', `"${course.title}"를 삭제할까요?\n수행 기록과 리뷰도 함께 삭제됩니다.`, [
+      { text: '취소', style: 'cancel' },
+      {
+        text: '삭제',
+        style: 'destructive',
+        onPress: async () => {
+          await deleteUserCourse(course.id);
+          const [mine, all] = await Promise.all([getUserCourses(), fetchCourses()]);
+          setUserCourses(mine);
+          if (all) setAllCourses(all);
+        },
+      },
+    ]);
+  }, []);
+
   useEffect(() => {
     if (allCourses.length === 0) return;
     let active = true;
@@ -506,6 +535,7 @@ export function HomeScreen() {
                 key={course.id}
                 course={course}
                 onPress={() => navigation.navigate('CourseDetail', { courseId: course.id })}
+                onLongPress={() => handleDeleteUserCourse(course)}
               />
             ))}
           </>

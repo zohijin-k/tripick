@@ -176,6 +176,15 @@ export async function createCourse(course: Course): Promise<Course | null> {
   });
 }
 
+/** 내가 만든 코스 삭제 (시드 코스는 서버가 거부) */
+export async function deleteCourse(courseId: string): Promise<boolean> {
+  const result = await requestJson<{ deleted: boolean }>(
+    `/courses/${encodeURIComponent(courseId)}`,
+    { method: 'DELETE', auth: true },
+  );
+  return result?.deleted === true;
+}
+
 export async function fetchReviews(courseId: string): Promise<Review[] | null> {
   return requestJson<Review[]>(`/courses/${encodeURIComponent(courseId)}/reviews`);
 }

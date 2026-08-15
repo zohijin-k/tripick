@@ -1,4 +1,4 @@
-import type { Course } from '../types/course';
+import type { Course, Spot } from '../types/course';
 
 /**
  * 시드(예시) 코스 대표 사진.
@@ -45,12 +45,18 @@ const TITLE_FALLBACKS: Array<[keyword: string, url: string]> = [
   ['가맥', SEED_COURSE_IMAGES['jeonju-gamek-tour']],
 ];
 
-/** 코스의 대표 사진 URL을 구한다. 없으면 undefined (→ 컬러 fallback 헤더). */
+/**
+ * 코스의 대표 사진 URL을 구한다.
+ * 우선순위: 유저 선택 사진 → 시드 매핑 → 제목 키워드 → 스팟의 TourAPI 사진.
+ * 전부 없으면 undefined (→ 컬러 fallback 헤더).
+ */
 export function getCourseImage(
-  course: Pick<Course, 'id' | 'title'> & { imageUrl?: string },
+  course: Pick<Course, 'id' | 'title'> & { imageUrl?: string; spots?: Spot[] },
 ): string | undefined {
   if (course.imageUrl) return course.imageUrl;
   if (SEED_COURSE_IMAGES[course.id]) return SEED_COURSE_IMAGES[course.id];
   const hit = TITLE_FALLBACKS.find(([keyword]) => course.title.includes(keyword));
-  return hit?.[1];
+  if (hit) return hit[1];
+  // 유저 스마트 코스: 대표 사진을 안 골랐어도 스팟(TourAPI) 사진으로 헤더를 채운다
+  return course.spots?.find((spot) => spot.imageUrl)?.imageUrl;
 }
