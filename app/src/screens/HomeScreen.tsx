@@ -307,11 +307,14 @@ function ScoreInfoSheet({ visible, onClose }: { visible: boolean; onClose: () =>
           <View style={sheetStyles.grabber} />
           <Text style={sheetStyles.title}>랭킹은 이렇게 만들어져요</Text>
           <Text style={sheetStyles.formula}>
-            TRIPICK Score = 완주율 × 50% + 만족도 × 30% + 수행자 수 × 20%
+            TRIPICK Score = (완주율 × 50% + 만족도 × 30% + 수행자 수 × 20%){'\n'}
+            × (1 + 숨은 전주 보너스)
           </Text>
           <Text style={sheetStyles.desc}>
             광고나 리뷰 조작 없이, GPS로 검증된 실제 수행 데이터만 사용해요.{'\n'}
-            수행자 {MIN_VERIFIED_PERFORMERS}명 이상 모인 코스부터 검증 랭킹에 올라갑니다.
+            수행자 {MIN_VERIFIED_PERFORMERS}명 이상 모인 코스부터 검증 랭킹에 올라갑니다.{'\n'}
+            🌱 숨은 전주 보너스: 한옥마을 밖 코스 +20%, 여행자 체크인으로 검증된
+            숨은 스팟 1곳당 +10% (최대 +20%) — 전주의 숨은 곳을 발굴할수록 점수가 올라요.
           </Text>
           <TouchableOpacity style={sheetStyles.closeBtn} onPress={onClose} activeOpacity={0.85}>
             <Text style={sheetStyles.closeBtnText}>확인</Text>
