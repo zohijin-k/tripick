@@ -33,6 +33,24 @@ docker compose up -d
 
 If you use an existing local PostgreSQL installation, update `DATABASE_URL` instead.
 
+### Production PostgreSQL (Neon)
+
+Production uses an external Neon PostgreSQL database so it is not tied to Render's time-limited free database. Create a Neon project, copy its pooled connection string, and set it as the Render web service's `DATABASE_URL` secret. Keep `sslmode=require` in the URL.
+
+`render.yaml` intentionally declares `DATABASE_URL` with `sync: false`. Never commit the real connection string or paste it into an app-side `.env` file.
+
+After creating or changing the production database, sync the schema and seed the initial public courses once:
+
+```bash
+cd backend
+$env:DATABASE_URL="postgresql://...neon.tech/neondb?sslmode=require"
+npm run prisma:generate
+npm run db:push
+npm run db:seed
+```
+
+Neon's free plan has usage limits and may suspend idle compute, but unlike Render's former free PostgreSQL offering it does not have a fixed 30-day database expiration. Provider policies can change, so export a backup before future provider changes.
+
 ## 3. Generate Prisma Client And Sync Schema
 
 ```bash
@@ -80,6 +98,7 @@ EXPO_PUBLIC_API_BASE_URL=http://192.168.0.10:3000/api
 | POST | `/api/auth/dev-login` | Local app development auto-login |
 | GET | `/api/auth/me` | Current user |
 | PATCH | `/api/auth/me` | Save nickname and travel preferences |
+| DELETE | `/api/auth/me` | Permanently delete the current account and owned data |
 | GET | `/api/courses` | Course list/ranking |
 | GET | `/api/courses/nearby?lat=...&lng=...` | Nearby courses ordered by distance and profile preference |
 | GET | `/api/courses/my` | My created courses |

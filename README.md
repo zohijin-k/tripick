@@ -20,14 +20,14 @@ TRIPICK은 사용자가 코스를 만들고, 다른 사용자가 **실제로 걸
 
 ## 스크린샷
 
-| 홈 — 코스 랭킹 | 코스 상세 — 신뢰도·지도 | 코스 수행 — GPS 체크인 |
+| 홈 — 코스 랭킹 | 코스 상세 — 신뢰도·경로 | 코스 수행 — GPS 체크인 |
 |---|---|---|
 | ![홈](docs/screenshots/home.png) | ![코스 상세](docs/screenshots/detail.png) | ![코스 수행](docs/screenshots/trace.png) |
 
 ## 핵심 기능
 
 - **코스 생성** — 한국관광공사 TourAPI 관광지 데이터 기반으로 여행 스타일·시간·이동 방식만 고르면 맞춤 코스 자동 생성, 대표 사진 업로드
-- **Trace 수행** — 지점 50m 이내 진입 시 GPS 자동 체크인, 실시간 진행률·경로 지도
+- **Trace 수행** — 지점 50m 이내 진입 시 GPS 자동 체크인, 실시간 진행률·경로 미리보기
 - **수행 기반 평가** — 완주 후 별점 리뷰, 완주율 70% 미만 리뷰는 가중치 1/3로 반영
 - **신뢰도 랭킹** — 완주율·만족도·수행자 수 가중 조합, 수행자 5명 이상부터 검증 랭킹 반영
 - **부정행위 방지** — 이동 속도 임계치 기반 GPS 스푸핑 탐지 시 체크인 보류
@@ -87,7 +87,7 @@ npm run start:dev
 ```
 
 서버 `http://localhost:3000/api` · Swagger `http://localhost:3000/api-docs`
-PostgreSQL·Prisma·JWT 로컬 셋업: [`backend/README.local-setup.md`](backend/README.local-setup.md)
+PostgreSQL·Prisma·JWT 로컬 셋업과 Neon 운영 DB 연결: [`backend/README.local-setup.md`](backend/README.local-setup.md)
 
 ### 웹 (React + Vite)
 

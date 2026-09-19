@@ -40,6 +40,7 @@ export interface TraceResponse {
 
 const TOKEN_KEY = 'tripick_backend_access_token';
 const DEVICE_KEY = 'tripick_backend_device_id';
+const ACCOUNT_DISABLED_KEY = 'tripick_backend_account_disabled';
 
 function getBaseUrl(): string | null {
   const baseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
@@ -58,6 +59,7 @@ async function getDeviceId(): Promise<string> {
 async function ensureToken(): Promise<string | null> {
   const baseUrl = getBaseUrl();
   if (!baseUrl) return null;
+  if ((await AsyncStorage.getItem(ACCOUNT_DISABLED_KEY)) === 'true') return null;
 
   const existing = await AsyncStorage.getItem(TOKEN_KEY);
   if (existing) return existing;
@@ -96,13 +98,72 @@ async function requestJson<T>(
     headers.Authorization = `Bearer ${token}`;
   }
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
   try {
-    const response = await fetch(`${baseUrl}${path}`, { ...options, headers });
+    const response = await fetch(`${baseUrl}${path}`, {
+      ...options,
+      headers,
+      signal: options.signal ?? controller.signal,
+    });
     if (!response.ok) return null;
     return (await response.json()) as T;
   } catch {
     return null;
+  } finally {
+    clearTimeout(timeout);
   }
+}
+
+function finiteNumber(value: unknown, fallback = 0): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function normalizeCourse(value: unknown): Course | null {
+  if (!value || typeof value !== 'object') return null;
+  const raw = value as Partial<Course>;
+  if (typeof raw.id !== 'string' || typeof raw.title !== 'string') return null;
+
+  const spots = Array.isArray(raw.spots)
+    ? raw.spots.flatMap((spot, index) => {
+        if (!spot || typeof spot !== 'object') return [];
+        const item = spot as Course['spots'][number];
+        if (typeof item.name !== 'string') return [];
+        return [{
+          ...item,
+          id: typeof item.id === 'string' && item.id ? item.id : `${raw.id}-spot-${index}`,
+          lat: Number.isFinite(item.lat) ? item.lat : undefined,
+          lng: Number.isFinite(item.lng) ? item.lng : undefined,
+          rating: Number.isFinite(item.rating) ? item.rating : undefined,
+          ratingCount: Math.max(0, finiteNumber(item.ratingCount)),
+        }];
+      })
+    : [];
+
+  return {
+    ...raw,
+    id: raw.id,
+    title: raw.title,
+    area: typeof raw.area === 'string' ? raw.area : '전주',
+    theme: typeof raw.theme === 'string' ? raw.theme : '로컬',
+    distance: typeof raw.distance === 'string' ? raw.distance : '-',
+    spotCount: spots.length,
+    completionRate: Math.min(100, Math.max(0, finiteNumber(raw.completionRate))),
+    averageRating: Math.min(5, Math.max(0, finiteNumber(raw.averageRating))),
+    performers: Math.max(0, Math.trunc(finiteNumber(raw.performers))),
+    recommendationReasons: Array.isArray(raw.recommendationReasons)
+      ? raw.recommendationReasons.filter((reason): reason is string => typeof reason === 'string')
+      : [],
+    spots,
+  };
+}
+
+function normalizeCourses(value: unknown): Course[] | null {
+  if (!Array.isArray(value)) return null;
+  return value.flatMap((course) => {
+    const normalized = normalizeCourse(course);
+    return normalized ? [normalized] : [];
+  });
 }
 
 export async function fetchJeonjuSpots(): Promise<BackendTourSpot[] | null> {
@@ -140,12 +201,12 @@ export async function fetchJeonjuFestivals(): Promise<JeonjuFestival[] | null> {
 }
 
 export async function fetchCourses(): Promise<Course[] | null> {
-  return requestJson<Course[]>('/courses');
+  return normalizeCourses(await requestJson<unknown>('/courses'));
 }
 
 export async function fetchNearbyCourses(lat: number, lng: number): Promise<Course[] | null> {
   const query = new URLSearchParams({ lat: String(lat), lng: String(lng) });
-  return requestJson<Course[]>(`/courses/nearby?${query.toString()}`, { auth: true });
+  return normalizeCourses(await requestJson<unknown>(`/courses/nearby?${query.toString()}`, { auth: true }));
 }
 
 export async function fetchProfile(): Promise<UserProfile | null> {
@@ -160,20 +221,40 @@ export async function updateProfile(profile: Omit<UserProfile, 'id' | 'email'>):
   });
 }
 
+export async function isBackendAccountDisabled(): Promise<boolean> {
+  return (await AsyncStorage.getItem(ACCOUNT_DISABLED_KEY)) === 'true';
+}
+
+export async function enableBackendAccount(): Promise<void> {
+  await AsyncStorage.removeItem(ACCOUNT_DISABLED_KEY);
+}
+
+export async function deleteAccount(): Promise<boolean> {
+  const result = await requestJson<{ deleted: boolean }>('/auth/me', {
+    method: 'DELETE',
+    auth: true,
+  });
+  if (result?.deleted !== true) return false;
+
+  await AsyncStorage.clear();
+  await AsyncStorage.setItem(ACCOUNT_DISABLED_KEY, 'true');
+  return true;
+}
+
 export async function fetchMyCourses(): Promise<Course[] | null> {
-  return requestJson<Course[]>('/courses/my', { auth: true });
+  return normalizeCourses(await requestJson<unknown>('/courses/my', { auth: true }));
 }
 
 export async function fetchCourse(courseId: string): Promise<Course | null> {
-  return requestJson<Course>(`/courses/${encodeURIComponent(courseId)}`);
+  return normalizeCourse(await requestJson<unknown>(`/courses/${encodeURIComponent(courseId)}`));
 }
 
 export async function createCourse(course: Course): Promise<Course | null> {
-  return requestJson<Course>('/courses', {
+  return normalizeCourse(await requestJson<unknown>('/courses', {
     method: 'POST',
     auth: true,
     body: JSON.stringify(course),
-  });
+  }));
 }
 
 /** 내가 만든 코스 삭제 (시드 코스는 서버가 거부) */

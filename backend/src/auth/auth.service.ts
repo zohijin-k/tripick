@@ -82,6 +82,15 @@ export class AuthService {
     });
   }
 
+  async deleteAccount(userId: string) {
+    await this.prisma.$transaction(async (tx) => {
+      // User-created courses are part of the account and must not survive deletion.
+      await tx.course.deleteMany({ where: { creatorId: userId } });
+      await tx.user.delete({ where: { id: userId } });
+    });
+    return { deleted: true };
+  }
+
   private issueToken(id: string, email: string, nickname: string) {
     return {
       accessToken: this.jwtService.sign({ sub: id, email }),

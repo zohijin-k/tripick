@@ -34,7 +34,7 @@ EXPO_PUBLIC_API_BASE_URL=https://tripick-api.onrender.com/api
 - Home: 검증 코스 랭킹, 내 코스, 현재 위치 기반 주변 코스 제안
 - Profile: 여행 스타일, 선호 시간, 이동 방식 저장
 - Smart Course: 프로필 취향을 기본값으로 사용해 코스 생성
-- Course Detail: 실제 지도, 장소 목록, TRIPICK/Trust Score, 리뷰
+- Course Detail: 코스 경로 미리보기, 장소 목록, TRIPICK/Trust Score, 리뷰
 - Nearby Courses: 위치 진입 시 추천된 코스를 좌우 스와이프로 비교
 - Trace: GPS 연속 추적, 목적지 50m 진입 시 자동 체크인, 진행 상태 복구
 - Review: 전 지점 자동 체크인 완료 후 리뷰 작성
@@ -45,8 +45,8 @@ EXPO_PUBLIC_API_BASE_URL=https://tripick-api.onrender.com/api
 
 - `expo-location`: Trace 화면에서 위치를 계속 관찰하고 50m 이내 진입을 감지합니다.
 - `expo-notifications`: 관광지 주변에서 추천 코스가 발견되면 로컬 알림을 표시합니다.
-- `react-native-maps`: iOS/Android에서 도로, 건물, POI, 경로, 목적지 마커를 표시합니다.
-- 웹에서는 네이티브 지도 대신 기존 Map Preview fallback을 사용합니다.
+- 코스 상세의 경로 미리보기는 장소 좌표를 상대 위치로 표시하는 React Native 뷰입니다.
+- 별도 지도 SDK 키가 필요하지 않으며, 네이티브 Kakao/Google 지도는 스토어 안정화 이후 추가할 예정입니다.
 
 수동 체크인은 제거했습니다. 좌표가 없는 장소는 자동 체크인할 수 있으므로 TourAPI 데이터 적재 시 좌표를 필수로 확인해야 합니다.
 
@@ -68,4 +68,4 @@ EXPO_PUBLIC_API_BASE_URL=https://tripick-api.onrender.com/api
 npm run ts-check
 ```
 
-네이티브 모듈 설정이 바뀌었으므로 배포 빌드에서는 새 development build/EAS build를 생성해야 합니다. Expo Go에서는 SDK 지원 범위 안에서 지도와 전경 위치 추적을 확인할 수 있습니다.
+네이티브 모듈 설정이 바뀌었으므로 배포 빌드에서는 새 development build/EAS build를 생성해야 합니다. Expo Go에서는 SDK 지원 범위 안에서 경로 미리보기와 전경 위치 추적을 확인할 수 있습니다.

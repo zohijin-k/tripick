@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
+import { deleteAccount, enableBackendAccount, isBackendAccountDisabled } from '../api/backendApi';
 import {
   DURATIONS,
   getTravelProfile,
@@ -43,8 +44,15 @@ export function ProfileScreen() {
   const navigation = useNavigation<ProfileNav>();
   const [profile, setProfile] = useState<TravelProfile | null>(null);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [accountDisabled, setAccountDisabled] = useState(false);
 
-  useEffect(() => { getTravelProfile().then(setProfile); }, []);
+  useEffect(() => {
+    Promise.all([getTravelProfile(), isBackendAccountDisabled()]).then(([savedProfile, disabled]) => {
+      setProfile(savedProfile);
+      setAccountDisabled(disabled);
+    });
+  }, []);
 
   if (!profile) {
     return <SafeAreaView style={styles.safe}><ActivityIndicator style={styles.loader} color="#0f8b6d" /></SafeAreaView>;
@@ -61,6 +69,39 @@ export function ProfileScreen() {
     Alert.alert('프로필 저장 완료', '앞으로 이 취향을 우선해 코스를 추천합니다.', [
       { text: '확인', onPress: () => navigation.goBack() },
     ]);
+  };
+
+  const confirmDeleteAccount = () => {
+    Alert.alert(
+      '계정과 데이터 삭제',
+      '내 코스, 수행 기록, 체크인, 리뷰와 기기에 저장된 TRIPICK 데이터를 모두 삭제합니다. 이 작업은 되돌릴 수 없습니다.',
+      [
+        { text: '취소', style: 'cancel' },
+        {
+          text: '모두 삭제',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            const deleted = await deleteAccount();
+            setDeleting(false);
+            if (!deleted) {
+              Alert.alert('삭제 실패', '네트워크 연결을 확인한 뒤 다시 시도해 주세요.');
+              return;
+            }
+            Alert.alert('삭제 완료', '계정과 관련 데이터가 삭제되었습니다.', [
+              { text: '확인', onPress: () => navigation.popToTop() },
+            ]);
+          },
+        },
+      ],
+    );
+  };
+
+  const reconnect = async () => {
+    await enableBackendAccount();
+    setAccountDisabled(false);
+    const freshProfile = await getTravelProfile();
+    setProfile(freshProfile);
   };
 
   return (
@@ -92,6 +133,24 @@ export function ProfileScreen() {
           <Text style={styles.infoTitle}>추천에 어떻게 쓰이나요?</Text>
           <Text style={styles.infoText}>주변 코스와 스마트 코스를 고를 때 선택한 취향과 가까운 코스를 먼저 보여줍니다.</Text>
         </View>
+        <View style={styles.accountSection}>
+          <Text style={styles.sectionTitle}>계정 및 데이터</Text>
+          {accountDisabled ? (
+            <>
+              <Text style={styles.accountText}>서버 계정과 저장 데이터가 삭제되었으며 동기화가 꺼져 있습니다.</Text>
+              <TouchableOpacity style={styles.reconnectButton} onPress={reconnect}>
+                <Text style={styles.reconnectText}>새 계정으로 다시 시작</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <Text style={styles.accountText}>삭제하면 내 코스, 수행 기록, 체크인과 리뷰가 서버와 이 기기에서 모두 제거됩니다.</Text>
+              <TouchableOpacity style={styles.deleteButton} onPress={confirmDeleteAccount} disabled={deleting}>
+                <Text style={styles.deleteText}>{deleting ? '삭제 중...' : '계정과 데이터 삭제'}</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
       </ScrollView>
       <View style={styles.bottomBar}>
         <TouchableOpacity style={[styles.saveButton, saving && styles.disabled]} onPress={save} disabled={saving}>
@@ -122,6 +181,12 @@ const styles = StyleSheet.create({
   info: { backgroundColor: '#e8f4f1', borderLeftWidth: 3, borderLeftColor: '#0f8b6d', padding: 14, borderRadius: 6 },
   infoTitle: { color: '#0b6b55', fontSize: 13, fontWeight: '800', marginBottom: 5 },
   infoText: { color: '#355e55', fontSize: 12, lineHeight: 18 },
+  accountSection: { backgroundColor: '#fff', padding: 16, borderRadius: 8 },
+  accountText: { color: '#526575', fontSize: 12, lineHeight: 18, marginBottom: 12 },
+  deleteButton: { borderWidth: 1, borderColor: '#c23b3b', borderRadius: 8, paddingVertical: 11, alignItems: 'center' },
+  deleteText: { color: '#a52f2f', fontSize: 13, fontWeight: '800' },
+  reconnectButton: { borderWidth: 1, borderColor: '#0f8b6d', borderRadius: 8, paddingVertical: 11, alignItems: 'center' },
+  reconnectText: { color: '#0b6b55', fontSize: 13, fontWeight: '800' },
   bottomBar: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: '#fff', padding: 16, borderTopWidth: 1, borderTopColor: '#e3eaee' },
   saveButton: { backgroundColor: '#0f8b6d', borderRadius: 8, paddingVertical: 14, alignItems: 'center' },
   saveText: { color: '#fff', fontSize: 15, fontWeight: '800' },

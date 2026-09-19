@@ -2,7 +2,7 @@
   "expo": {
     "name": "TRIPICK",
     "slug": "tripick",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -13,7 +13,8 @@
       "backgroundColor": "#106744"
     },
     "ios": {
-      "supportsTablets": false,
+      "supportsTablet": false,
+      "buildNumber": "2",
       "bundleIdentifier": "com.tripick.app",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "현재 위치를 사용하여 목적지 도착 시 자동 체크인과 주변 코스 추천을 제공합니다."
@@ -21,7 +22,7 @@
     },
     "android": {
       "package": "com.tripick.app",
-      "versionCode": 1,
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#106744"
@@ -38,12 +39,21 @@
           "locationWhenInUsePermission": "현재 위치를 사용하여 목적지 도착 시 자동 체크인과 주변 코스 추천을 제공합니다."
         }
       ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "스마트 코스의 대표 사진을 선택하기 위해 사진 보관함 접근이 필요합니다.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
       "expo-notifications"
     ],
     "extra": {
       "eas": {
-        "projectId": "beeb5327-2303-44a5-af33-5a9863e3b64d"
+        "projectId": "7ee6fac5-7a0e-4779-9e7d-9759beaed0ed"
       }
-    }
+    },
+    "owner": "swh06084"
   }
 }

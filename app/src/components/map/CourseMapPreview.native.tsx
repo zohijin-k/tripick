@@ -1,16 +1,17 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import MapView, { Marker, Polyline } from 'react-native-maps';
 import type { Spot } from '../../types/course';
-import type { LatLng } from '../../utils/distance';
+import { normalizeCoordinates } from '../../utils/mapProjection';
 
 interface Props {
   spots: Spot[];
   visitedSpotIds?: string[];
   activeSpotId?: string | null;
-  userLocation?: LatLng | null;
+  userLocation?: { lat: number; lng: number } | null;
   height?: number;
 }
+
+type PercentValue = `${number}%`;
 
 export function CourseMapPreview({
   spots,
@@ -19,38 +20,17 @@ export function CourseMapPreview({
   userLocation = null,
   height = 220,
 }: Props) {
-  const validSpots = useMemo(
-    () => spots.filter((spot): spot is Spot & { lat: number; lng: number } =>
-      Number.isFinite(spot.lat) && Number.isFinite(spot.lng)),
-    [spots],
+  const { spotPoints, userPoint } = useMemo(
+    () => normalizeCoordinates(spots, userLocation),
+    [spots, userLocation],
   );
 
-  const region = useMemo(() => {
-    const points = [
-      ...validSpots.map((spot) => ({ latitude: spot.lat, longitude: spot.lng })),
-      ...(userLocation ? [{ latitude: userLocation.lat, longitude: userLocation.lng }] : []),
-    ];
-    if (points.length === 0) return null;
-    const latitudes = points.map((point) => point.latitude);
-    const longitudes = points.map((point) => point.longitude);
-    const minLat = Math.min(...latitudes);
-    const maxLat = Math.max(...latitudes);
-    const minLng = Math.min(...longitudes);
-    const maxLng = Math.max(...longitudes);
-    return {
-      latitude: (minLat + maxLat) / 2,
-      longitude: (minLng + maxLng) / 2,
-      latitudeDelta: Math.max((maxLat - minLat) * 1.6, 0.008),
-      longitudeDelta: Math.max((maxLng - minLng) * 1.6, 0.008),
-    };
-  }, [userLocation, validSpots]);
-
-  if (!region) {
+  if (spotPoints.length === 0) {
     return (
       <View style={styles.card}>
-        <View style={[styles.empty, { height }]}>
+        <View style={[styles.frame, styles.empty, { height }]}>
           <Text style={styles.emptyTitle}>표시할 위치 정보가 없습니다</Text>
-          <Text style={styles.emptyText}>좌표가 있는 관광지만 지도에 표시됩니다.</Text>
+          <Text style={styles.emptyText}>좌표가 있는 관광지만 경로에 표시됩니다.</Text>
         </View>
       </View>
     );
@@ -59,54 +39,66 @@ export function CourseMapPreview({
   return (
     <View style={styles.card}>
       <View style={styles.header}>
-        <Text style={styles.title}>실시간 코스 지도</Text>
-        <Text style={styles.badge}>{validSpots.length}개 지점</Text>
+        <Text style={styles.title}>코스 경로 미리보기</Text>
+        <Text style={styles.badge}>{spotPoints.length}개 지점</Text>
       </View>
-      <MapView
-        style={{ height, width: '100%' }}
-        initialRegion={region}
-        showsBuildings
-        showsPointsOfInterest
-        showsUserLocation={Boolean(userLocation)}
-        showsMyLocationButton={Boolean(userLocation)}
-        toolbarEnabled={false}
-      >
-        <Polyline
-          coordinates={validSpots.map((spot) => ({ latitude: spot.lat, longitude: spot.lng }))}
-          strokeColor="#0f8b6d"
-          strokeWidth={4}
-        />
-        {validSpots.map((spot, index) => {
-          const visited = visitedSpotIds.includes(spot.id);
-          const active = spot.id === activeSpotId && !visited;
+      <View style={[styles.frame, { height }]}>
+        {[20, 40, 60, 80].map((value) => (
+          <React.Fragment key={value}>
+            <View style={[styles.horizontal, { top: `${value}%` as PercentValue }]} />
+            <View style={[styles.vertical, { left: `${value}%` as PercentValue }]} />
+          </React.Fragment>
+        ))}
+        {spotPoints.map((point, index) => {
+          const visited = visitedSpotIds.includes(point.id);
+          const active = point.id === activeSpotId && !visited;
           return (
-            <Marker
-              key={spot.id}
-              coordinate={{ latitude: spot.lat, longitude: spot.lng }}
-              title={`${index + 1}. ${spot.name}`}
-              description={spot.address}
-              pinColor={visited ? '#059669' : active ? '#f59e0b' : '#13315c'}
-            />
+            <View
+              key={point.id}
+              style={[
+                styles.markerWrap,
+                { left: `${point.x}%` as PercentValue, top: `${point.y}%` as PercentValue },
+              ]}
+            >
+              <View style={[styles.marker, visited && styles.visited, active && styles.active]}>
+                <Text style={styles.markerText}>{visited ? '✓' : index + 1}</Text>
+              </View>
+            </View>
           );
         })}
-      </MapView>
-      <View style={styles.legend}>
-        <Text style={styles.legendText}>● 예정</Text>
-        <Text style={[styles.legendText, { color: '#f59e0b' }]}>● 현재 목적지</Text>
-        <Text style={[styles.legendText, { color: '#059669' }]}>● 방문 완료</Text>
+        {userPoint && (
+          <View
+            style={[
+              styles.userMarker,
+              { left: `${userPoint.x}%` as PercentValue, top: `${userPoint.y}%` as PercentValue },
+            ]}
+          >
+            <Text style={styles.userText}>내 위치</Text>
+          </View>
+        )}
+        <Text style={styles.note}>장소의 상대 위치를 보여주는 미리보기입니다.</Text>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: '#fff', borderRadius: 8, padding: 12, marginBottom: 12, overflow: 'hidden', elevation: 2 },
+  card: { backgroundColor: '#fff', borderRadius: 8, padding: 12, marginBottom: 12, elevation: 2 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   title: { color: '#13315c', fontSize: 14, fontWeight: '800' },
   badge: { color: '#0f7660', backgroundColor: '#e5f4f0', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, fontSize: 11, fontWeight: '700' },
-  empty: { backgroundColor: '#edf3f6', alignItems: 'center', justifyContent: 'center', borderRadius: 6 },
+  frame: { position: 'relative', overflow: 'hidden', borderRadius: 6, backgroundColor: '#eef6fb', borderWidth: 1, borderColor: '#d7e6f1' },
+  empty: { alignItems: 'center', justifyContent: 'center' },
   emptyTitle: { color: '#526575', fontSize: 14, fontWeight: '700' },
   emptyText: { color: '#8394a0', fontSize: 11, marginTop: 5 },
-  legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingTop: 10 },
-  legendText: { color: '#13315c', fontSize: 10, fontWeight: '700' },
+  horizontal: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: '#d5e4ee' },
+  vertical: { position: 'absolute', top: 0, bottom: 0, width: 1, backgroundColor: '#d5e4ee' },
+  markerWrap: { position: 'absolute', marginLeft: -15, marginTop: -15 },
+  marker: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#13315c', borderWidth: 2, borderColor: '#fff', alignItems: 'center', justifyContent: 'center', elevation: 3 },
+  visited: { backgroundColor: '#0f8b6d' },
+  active: { backgroundColor: '#f59e0b' },
+  markerText: { color: '#fff', fontSize: 12, fontWeight: '800' },
+  userMarker: { position: 'absolute', marginLeft: -22, marginTop: -10, backgroundColor: '#1d4ed8', borderRadius: 10, paddingHorizontal: 7, paddingVertical: 3 },
+  userText: { color: '#fff', fontSize: 9, fontWeight: '800' },
+  note: { position: 'absolute', right: 8, bottom: 7, color: '#648197', backgroundColor: 'rgba(255,255,255,0.8)', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3, fontSize: 9 },
 });
